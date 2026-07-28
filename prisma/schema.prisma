@@ -1,0 +1,157 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id           String           @id @default(uuid())
+  name         String
+  email        String?          @unique
+  rollNumber   Int?             @unique
+  passwordHash String
+  role         String           // "ADMIN" | "TEACHER" | "STUDENT"
+  classId      String?
+  class        Class?           @relation(fields: [classId], references: [id], onDelete: SetNull)
+  passportUrl  String?
+  createdAt    DateTime         @default(now())
+  
+  // Relations
+  questions    Question[]
+  attempts     StudentAttempt[]
+  results      Result[]
+  reports      QuestionReport[]
+  classes      Class[]          @relation("TeacherClasses")
+  subjectsCreated Subject[]      @relation("TeacherSubjects")
+}
+
+model Class {
+  id              String    @id @default(uuid())
+  name            String    // e.g. "SS3"
+  arm             String    // e.g. "Gold"
+  academicSession String    // e.g. "2025/2026"
+  createdAt       DateTime  @default(now())
+
+  // Relations
+  students        User[]
+  exams           Exam[]
+  subjects        Subject[] @relation("ClassSubjects")
+  teachers        User[]    @relation("TeacherClasses")
+}
+
+model Subject {
+  id        String   @id @default(uuid())
+  name      String   // e.g. "Mathematics", "English Language"
+  createdAt DateTime @default(now())
+  teacherId String?
+  teacher   User?    @relation("TeacherSubjects", fields: [teacherId], references: [id], onDelete: SetNull)
+
+  // Relations
+  classes      Class[]       @relation("ClassSubjects")
+  questions    Question[]
+  examSubjects ExamSubject[]
+  attempts     StudentAttempt[]
+}
+
+model Question {
+  id            String           @id @default(uuid())
+  subjectId     String
+  subject       Subject          @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacherId     String
+  teacher       User             @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  questionText  String
+  imageUrl      String?          // Nullable diagram
+  passageText   String?          // Nullable reading text
+  passageTitle  String?          // Nullable reading title
+  optionA       String
+  optionB       String
+  optionC       String
+  optionD       String
+  optionE       String?
+  optionF       String?
+  correctOption String           // "A" | "B" | "C" | "D" | "E" | "F"
+  assessmentType String          @default("Exam") // "1st CA" | "2nd CA" | "Exam"
+  points        Int              @default(1)
+  status        String           @default("PUBLISHED") // "DRAFT" | "PUBLISHED"
+  createdAt     DateTime         @default(now())
+
+  // Relations
+  attempts      StudentAttempt[]
+  reports       QuestionReport[]
+}
+
+model Exam {
+  id              String   @id @default(uuid())
+  classId         String
+  class           Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  createdBy       String   // User ID of Admin/Teacher who created it
+  title           String   // e.g. "Term 1 Mock Exams"
+  startTime       DateTime
+  endTime         DateTime
+  durationMinutes Int
+  status          String   // "DRAFT" | "SCHEDULED" | "LIVE" | "CLOSED"
+  resultsReleased Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  // Relations
+  examSubjects    ExamSubject[]
+  attempts        StudentAttempt[]
+  results         Result[]
+}
+
+model ExamSubject {
+  examId            String
+  exam              Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  subjectId         String
+  subject           Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  numberOfQuestions Int
+
+  @@id([examId, subjectId])
+}
+
+model StudentAttempt {
+  id             String    @id @default(uuid())
+  examId         String
+  exam           Exam      @relation(fields: [examId], references: [id], onDelete: Cascade)
+  studentId      String
+  student        User      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subjectId      String
+  subject        Subject   @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  questionId     String
+  question       Question  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  selectedOption String?   // "A" | "B" | "C" | "D" or null
+  isFlagged      Boolean   @default(false) // Flagged for review
+  answeredAt     DateTime  @default(now())
+
+  @@unique([examId, studentId, questionId])
+}
+
+model Result {
+  id             String   @id @default(uuid())
+  examId         String
+  exam           Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  studentId      String
+  student        User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  score          Float    // Percentage or absolute score
+  totalQuestions Int      // Total questions answered/attempted
+  timeSpent      Int      // in seconds
+  createdAt      DateTime @default(now())
+
+  @@unique([examId, studentId])
+}
+
+model QuestionReport {
+  id         String   @id @default(uuid())
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  studentId  String
+  student    User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  reason     String
+  status     String   @default("OPEN") // "OPEN" | "RESOLVED"
+  createdAt  DateTime @default(now())
+}
