@@ -43,6 +43,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Exam not found" }, { status: 404 });
     }
 
+    if (exam.status !== "LIVE") {
+      return NextResponse.json({ error: "This exam is currently closed." }, { status: 403 });
+    }
+
     // Check if the student already submitted this exam
     const existingResult = await prisma.result.findUnique({
       where: {

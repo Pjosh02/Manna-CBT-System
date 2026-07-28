@@ -877,7 +877,7 @@ export default function TeacherDashboard() {
                                     : "bg-blue-500/10 border-blue-500/30 text-blue-400"
                                 }`}
                               >
-                                {ex.status}
+                                {ex.status === "LIVE" ? "OPEN" : "CLOSED"}
                               </span>
                             </td>
                             <td className="py-3.5 text-center">
@@ -910,7 +910,7 @@ export default function TeacherDashboard() {
                                     title: ex.title,
                                     date: ex.startTime ? new Date(ex.startTime).toISOString().split("T")[0] : "",
                                     durationMinutes: String(ex.durationMinutes),
-                                    status: ex.status,
+                                    status: ex.status === "CLOSED" ? "CLOSED" : "LIVE",
                                     subjects: ex.examSubjects.map((es: any) => ({
                                       subjectId: es.subjectId,
                                       numberOfQuestions: String(es.numberOfQuestions),
@@ -1202,22 +1202,29 @@ export default function TeacherDashboard() {
                         onChange={(e) => setExamForm({ ...examForm, status: e.target.value })}
                         className="w-full bg-zinc-950 border border-zinc-800 focus:border-red-500 text-white rounded-lg p-2.5 outline-none transition"
                       >
-                        <option value="LIVE">LIVE (Starts immediately)</option>
-                        <option value="SCHEDULED">SCHEDULED (Starts on start window)</option>
-                        <option value="DRAFT">DRAFT</option>
+                        <option value="LIVE">Open</option>
+                        <option value="CLOSED">Close</option>
                       </select>
                     </div>
                   </div>
 
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Exam Date</label>
-                    <input
-                      type="date"
-                      required
-                      value={examForm.date}
-                      onChange={(e) => setExamForm({ ...examForm, date: e.target.value })}
-                      className="w-full bg-zinc-950 border border-zinc-800 focus:border-red-500 text-white text-xs rounded-lg p-2.5 outline-none transition"
-                    />
+                    <div className="relative">
+                      <Calendar className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        type="date"
+                        required
+                        value={examForm.date}
+                        onClick={(e) => {
+                          try {
+                            (e.target as any).showPicker();
+                          } catch (err) {}
+                        }}
+                        onChange={(e) => setExamForm({ ...examForm, date: e.target.value })}
+                        className="w-full bg-zinc-950 border border-zinc-800 focus:border-red-500 text-white text-xs rounded-lg p-2.5 pl-9 outline-none transition"
+                      />
+                    </div>
                   </div>
 
                   {/* Subjects Configuration */}

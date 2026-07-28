@@ -47,11 +47,9 @@ export async function GET(request: NextRequest) {
       const startTime = new Date(exam.startTime);
       const endTime = new Date(exam.endTime);
 
-      let timingStatus = "SCHEDULED";
-      if (now >= startTime && now <= endTime && exam.status === "LIVE") {
+      let timingStatus = "CLOSED";
+      if (exam.status === "LIVE") {
         timingStatus = "LIVE";
-      } else if (now > endTime || exam.status === "CLOSED") {
-        timingStatus = "CLOSED";
       }
 
       return {
