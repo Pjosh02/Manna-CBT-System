@@ -213,17 +213,6 @@ export default function LoginPage() {
             {loading ? "Signing in..." : "Access Portal"}
           </button>
         </form>
-
-        <div className="mt-8 pt-6 border-t border-slate-200 text-center">
-          <div className="bg-[#FFD100]/10 border border-[#FFD100]/30 rounded-xl p-4 text-xs text-slate-600 max-w-sm mx-auto shadow-sm">
-            <span className="font-bold text-[#002B7F] block mb-1">Temporary Staging Credentials</span>
-            <p className="space-y-1 font-medium leading-relaxed">
-              <strong>Admin:</strong> <span className="font-mono text-slate-800 select-all">admin@school.com</span> / <span className="font-mono text-slate-800">admin123</span> <br />
-              <strong>Teacher:</strong> <span className="font-mono text-slate-800 select-all">teacher@school.com</span> / <span className="font-mono text-slate-800">teacher123</span> <br />
-              <strong>Student:</strong> <span className="font-mono text-slate-800 select-all">Chinedu Okafor</span> / <span className="font-mono text-slate-800">101</span>
-            </p>
-          </div>
-        </div>
       </div>
     </div>
   );
