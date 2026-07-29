@@ -106,8 +106,9 @@ export default function TeacherDashboard() {
       setSubjects(classSubjects);
       if (classSubjects.length > 0) {
         setSelectedSubjectId((prev) => {
+          if (prev === null) return null;
           if (classSubjects.some((s: any) => s.id === prev)) return prev;
-          return classSubjects[0].id;
+          return null; // Default to null (All Subjects)
         });
       } else {
         setSelectedSubjectId(null);
@@ -719,6 +720,26 @@ export default function TeacherDashboard() {
                 <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3">
                   <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Class Subjects Selector</p>
                   <div className="max-h-60 overflow-y-auto pr-1 space-y-2 border border-slate-100 rounded-xl p-2 bg-slate-50/50">
+                    {/* All Subjects selection */}
+                    <div
+                      onClick={() => setSelectedSubjectId(null)}
+                      className={`flex items-center justify-between p-3 rounded-xl border transition cursor-pointer select-none ${
+                        selectedSubjectId === null
+                          ? "bg-[#1B2A6B]/5 border-[#1B2A6B]/30 text-[#1B2A6B] font-bold"
+                          : "bg-white border-slate-200 hover:border-[#1B2A6B]/30 text-slate-800"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <BookOpen className={`w-4 h-4 ${selectedSubjectId === null ? "text-[#1B2A6B]" : "text-slate-400"}`} />
+                        <span className="font-semibold text-sm">All Subjects</span>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <span className="text-xs text-slate-500 font-medium">
+                          ({questions.length} Q)
+                        </span>
+                      </div>
+                    </div>
+
                     {subjects.map((sub) => {
                       const isSelected = selectedSubjectId === sub.id;
                       return (
