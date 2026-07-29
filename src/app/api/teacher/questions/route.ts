@@ -12,11 +12,17 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const subjectId = searchParams.get("subjectId");
+    const classId = searchParams.get("classId");
 
     const questions = await prisma.question.findMany({
       where: {
         teacherId: payload.id,
         subjectId: subjectId || undefined,
+        subject: classId ? {
+          classes: {
+            some: { id: classId }
+          }
+        } : undefined,
       },
       include: {
         subject: true,
@@ -61,6 +67,8 @@ export async function POST(request: NextRequest) {
           assessmentType,
           points,
           status,
+          difficulty,
+          tags,
         } = row;
 
         if (!subjectId || !questionText || !optionA || !optionB || !optionC || !optionD || !correctOption) {
@@ -98,6 +106,8 @@ export async function POST(request: NextRequest) {
             assessmentType: assessmentType || "Exam",
             points: points ? parseInt(points.toString()) : 1,
             status: status || "PUBLISHED",
+            difficulty: difficulty || "MEDIUM",
+            tags: tags || null,
           },
         });
         addedQuestions.push(question);
@@ -126,6 +136,8 @@ export async function POST(request: NextRequest) {
       assessmentType,
       points,
       status,
+      difficulty,
+      tags,
     } = body;
 
     if (!subjectId || !questionText || !optionA || !optionB || !optionC || !optionD || !correctOption) {
@@ -160,6 +172,8 @@ export async function POST(request: NextRequest) {
         assessmentType: assessmentType || "Exam",
         points: points ? parseInt(points.toString()) : 1,
         status: status || "PUBLISHED",
+        difficulty: difficulty || "MEDIUM",
+        tags: tags || null,
       },
     });
 
@@ -193,6 +207,8 @@ export async function PATCH(request: NextRequest) {
       assessmentType,
       points,
       status,
+      difficulty,
+      tags,
     } = await request.json();
 
     if (!id) {
@@ -240,6 +256,8 @@ export async function PATCH(request: NextRequest) {
         assessmentType: assessmentType !== undefined ? assessmentType : undefined,
         points: points !== undefined ? parseInt(points.toString()) : undefined,
         status: status !== undefined ? status : undefined,
+        difficulty: difficulty !== undefined ? difficulty : undefined,
+        tags: tags !== undefined ? tags : undefined,
       },
     });
 

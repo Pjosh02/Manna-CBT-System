@@ -28,6 +28,7 @@ model User {
   reports      QuestionReport[]
   classes      Class[]          @relation("TeacherClasses")
   subjectsCreated Subject[]      @relation("TeacherSubjects")
+  examSessions    ExamSession[]
 }
 
 model Class {
@@ -78,6 +79,8 @@ model Question {
   assessmentType String          @default("Exam") // "1st CA" | "2nd CA" | "Exam"
   points        Int              @default(1)
   status        String           @default("PUBLISHED") // "DRAFT" | "PUBLISHED"
+  difficulty    String           @default("MEDIUM") // "EASY" | "MEDIUM" | "HARD"
+  tags          String?
   createdAt     DateTime         @default(now())
 
   // Relations
@@ -100,6 +103,7 @@ model Exam {
 
   // Relations
   examSubjects    ExamSubject[]
+  sessions        ExamSession[]
   attempts        StudentAttempt[]
   results         Result[]
 }
@@ -154,4 +158,20 @@ model QuestionReport {
   reason     String
   status     String   @default("OPEN") // "OPEN" | "RESOLVED"
   createdAt  DateTime @default(now())
+}
+
+model ExamSession {
+  id             String   @id @default(uuid())
+  examId         String
+  exam           Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  studentId      String
+  student        User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  startTime      DateTime @default(now())
+  lastPing       DateTime @default(now())
+  status         String   @default("IN_PROGRESS") // "IN_PROGRESS" | "SUBMITTED"
+  tabSwitches    Int      @default(0)
+  ipAddress      String?
+  userAgent      String?
+
+  @@unique([examId, studentId])
 }

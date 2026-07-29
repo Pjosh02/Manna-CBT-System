@@ -22,6 +22,7 @@ import {
   ChevronRight,
   Eye,
   EyeOff,
+  X,
 } from "lucide-react";
 import MathRenderer from "@/components/MathRenderer";
 
@@ -59,10 +60,22 @@ export default function TeacherDashboard() {
   });
   const [editingExamId, setEditingExamId] = useState<string | null>(null);
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
+  
+  // Question Bank search & filters state
+  const [filterDifficulty, setFilterDifficulty] = useState<string>("");
+  const [filterTag, setFilterTag] = useState<string>("");
 
-  const filteredQuestions = selectedSubjectId
-    ? questions.filter((q) => q.subjectId === selectedSubjectId)
-    : [];
+  const filteredQuestions = questions.filter((q) => {
+    if (selectedSubjectId && q.subjectId !== selectedSubjectId) return false;
+    if (filterDifficulty && q.difficulty !== filterDifficulty) return false;
+    if (filterTag) {
+      if (!q.tags) return false;
+      const cleanTag = filterTag.toLowerCase().trim();
+      const tagsList = q.tags.toLowerCase().split(",").map((t: string) => t.trim());
+      if (!tagsList.some((t: string) => t.includes(cleanTag))) return false;
+    }
+    return true;
+  });
 
   // Fetch Teacher data
   const fetchClassData = async (classIdToFetch: string) => {
@@ -72,7 +85,7 @@ export default function TeacherDashboard() {
       const classQuery = `?classId=${classIdToFetch}`;
       const [studentsRes, questionsRes, subjectsRes, examsRes, resultsRes] = await Promise.all([
         fetch(`/api/teacher/students${classQuery}`),
-        fetch("/api/teacher/questions"),
+        fetch(`/api/teacher/questions${classQuery}`),
         fetch(`/api/teacher/subjects${classQuery}`),
         fetch(`/api/teacher/exams${classQuery}`),
         fetch(`/api/teacher/results${classQuery}`),
@@ -129,6 +142,56 @@ export default function TeacherDashboard() {
     };
     initSession();
   }, []);
+
+  // Proctoring Monitor States & Logic
+  const [proctorExamId, setProctorExamId] = useState<string | null>(null);
+  const [proctorData, setProctorData] = useState<any>(null);
+  const [proctorLoading, setProctorLoading] = useState(false);
+
+  const fetchProctorData = async (examId: string) => {
+    try {
+      const res = await fetch(`/api/teacher/exams/${examId}/proctor`);
+      const data = await res.json();
+      if (res.ok) {
+        setProctorData(data);
+      }
+    } catch (err) {
+      console.error("Proctor fetch error:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (!proctorExamId) {
+      setProctorData(null);
+      return;
+    }
+    fetchProctorData(proctorExamId);
+    const interval = setInterval(() => {
+      fetchProctorData(proctorExamId);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [proctorExamId]);
+
+  const handleForceSubmit = async (studentId: string) => {
+    if (!proctorExamId) return;
+    if (!confirm("Are you sure you want to force submit this student's exam paper?")) return;
+    try {
+      const res = await fetch(`/api/teacher/exams/${proctorExamId}/proctor`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentId }),
+      });
+      if (res.ok) {
+        alert("Student's exam has been force submitted.");
+        fetchProctorData(proctorExamId);
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to force submit");
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const handleClassChange = (newClassId: string) => {
     setSelectedClassId(newClassId);
@@ -707,18 +770,44 @@ export default function TeacherDashboard() {
                   )}
                 </div>
               )}
+              {/* Question Filters Panel */}
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 shadow-sm grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] uppercase font-bold tracking-wider text-slate-450 mb-1">Filter by Difficulty</label>
+                  <select
+                    value={filterDifficulty}
+                    onChange={(e) => setFilterDifficulty(e.target.value)}
+                    className="w-full bg-white border border-slate-200 text-slate-700 text-xs rounded-lg p-2 outline-none font-medium"
+                  >
+                    <option value="">All Difficulties</option>
+                    <option value="EASY">EASY</option>
+                    <option value="MEDIUM">MEDIUM</option>
+                    <option value="HARD">HARD</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase font-bold tracking-wider text-slate-450 mb-1">Search Tags</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. algebra, speed"
+                    value={filterTag}
+                    onChange={(e) => setFilterTag(e.target.value)}
+                    className="w-full bg-white border border-slate-200 text-slate-750 text-xs rounded-lg p-2 outline-none font-medium font-sans"
+                  />
+                </div>
+              </div>
 
               {/* Questions Grid */}
               <div className="space-y-4">
                 {filteredQuestions.length === 0 ? (
                   <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center text-slate-400">
-                    {selectedSubjectId
-                      ? "No questions found for the selected subject. Click Add Question to create one."
+                    {selectedSubjectId || filterDifficulty || filterTag
+                      ? "No questions found matching the selected subject or filter criteria."
                       : "Your questions bank is empty. Author questions to get started."}
                   </div>
                 ) : (
                   filteredQuestions.map((q) => (
-                    <div key={q.id} className="bg-white border border-slate-200 hover:border-[#1B2A6B]/30 rounded-2xl p-5 space-y-3 relative group shadow-sm text-slate-800">
+                    <div key={q.id} className="bg-white border border-slate-200 hover:border-[#1B2A6B]/30 rounded-2xl p-5 space-y-3 relative group shadow-sm text-slate-800 animate-fade-in">
                       <div className="flex items-start justify-between gap-4 flex-wrap">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-[#1B2A6B] text-white">
@@ -731,12 +820,30 @@ export default function TeacherDashboard() {
                             {q.points || 1} pt(s)
                           </span>
                           <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${
+                            q.difficulty === "EASY"
+                              ? "bg-emerald-50 border-emerald-250 text-emerald-700"
+                              : q.difficulty === "HARD"
+                              ? "bg-red-50 border-red-250 text-red-700 font-extrabold"
+                              : "bg-blue-50 border-blue-250 text-blue-700"
+                          }`}>
+                            {q.difficulty || "MEDIUM"}
+                          </span>
+                          <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${
                             q.status === "DRAFT"
                               ? "bg-amber-50 border-amber-200 text-amber-700"
                               : "bg-emerald-50 border-emerald-200 text-emerald-700"
                           }`}>
                             {q.status || "PUBLISHED"}
                           </span>
+                          {q.tags && q.tags.split(",").map((tag: string, idx: number) => {
+                            const trimmed = tag.trim();
+                            if (!trimmed) return null;
+                            return (
+                              <span key={idx} className="text-[10px] bg-slate-100 text-slate-500 border border-slate-200 px-2 py-0.5 rounded font-medium">
+                                #{trimmed}
+                              </span>
+                            );
+                          })}
                         </div>
 
                         <div className="flex gap-2 opacity-80 md:opacity-0 group-hover:opacity-100 transition duration-200">
@@ -903,6 +1010,13 @@ export default function TeacherDashboard() {
                               </button>
                             </td>
                             <td className="py-3.5 text-right space-x-1.5 flex items-center justify-end">
+                              <button
+                                onClick={() => setProctorExamId(ex.id)}
+                                className="p-1.5 hover:text-emerald-600 inline-block transition cursor-pointer text-slate-450"
+                                title="Live Proctoring / Monitor Students"
+                              >
+                                <Users className="w-4 h-4" />
+                              </button>
                               <button
                                 onClick={() => {
                                   setEditingExamId(ex.id);
@@ -1327,6 +1441,119 @@ export default function TeacherDashboard() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* PROCTORING MONITOR CONSOLE MODAL OVERLAY */}
+      {proctorExamId && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-4xl max-h-[85vh] overflow-hidden shadow-2xl flex flex-col text-slate-800 font-sans animate-fade-in">
+            {/* Header */}
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-[#1B2A6B] text-white">
+              <div>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Users className="w-5 h-5 text-[#FFD100]" /> Live Exam Monitoring Console
+                </h3>
+                <p className="text-xs text-slate-350 mt-1">
+                  Exam: <span className="font-semibold">{proctorData?.examTitle || "Loading..."}</span> ({proctorData?.durationMinutes} mins)
+                </p>
+              </div>
+              <button
+                onClick={() => setProctorExamId(null)}
+                className="p-1.5 hover:bg-[#152052] rounded-xl transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content List */}
+            <div className="p-6 overflow-y-auto flex-1 space-y-4">
+              {!proctorData ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-400">
+                  <Loader2 className="w-8 h-8 animate-spin text-[#1B2A6B]" />
+                  <span className="text-xs font-semibold">Connecting to exam stream...</span>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-slate-400 font-bold uppercase tracking-wider text-xs">
+                        <th className="pb-3">Student Name</th>
+                        <th className="pb-3">Roll / Email</th>
+                        <th className="pb-3">Status</th>
+                        <th className="pb-3 text-center">Tab Switches</th>
+                        <th className="pb-3">IP Address</th>
+                        <th className="pb-3">Last Active</th>
+                        <th className="pb-3 text-center">Score</th>
+                        <th className="pb-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {proctorData.students.length === 0 ? (
+                        <tr>
+                          <td colSpan={8} className="py-4 text-center text-slate-400">No students enrolled in this class.</td>
+                        </tr>
+                      ) : (
+                        proctorData.students.map((student: any) => (
+                          <tr key={student.studentId} className="border-b border-slate-100 hover:bg-slate-50/50">
+                            <td className="py-3.5 font-bold text-slate-800 font-semibold">{student.name}</td>
+                            <td className="py-3.5 text-slate-500 font-mono text-xs">{student.rollNumber}</td>
+                            <td className="py-3.5">
+                              <span
+                                className={`text-[10px] px-2 py-0.5 rounded border font-bold ${
+                                  student.status === "ONLINE"
+                                    ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                                    : student.status === "SUBMITTED"
+                                    ? "bg-blue-50 border-blue-200 text-blue-700"
+                                    : student.status === "OFFLINE"
+                                    ? "bg-amber-50 border-amber-200 text-amber-700"
+                                    : "bg-slate-50 border-slate-200 text-slate-450"
+                                }`}
+                              >
+                                {student.status}
+                              </span>
+                            </td>
+                            <td className="py-3.5 text-center">
+                              <span
+                                className={`font-mono text-xs font-bold px-1.5 py-0.5 rounded ${
+                                  student.tabSwitches >= 3
+                                    ? "bg-red-50 border border-red-200 text-red-700 font-black animate-pulse"
+                                    : student.tabSwitches > 0
+                                    ? "bg-amber-50 border border-amber-200 text-amber-700"
+                                    : "bg-slate-50 border border-slate-200 text-slate-500"
+                                }`}
+                              >
+                                {student.tabSwitches} / 3
+                              </span>
+                            </td>
+                            <td className="py-3.5 text-xs text-slate-500 font-mono">{student.ipAddress || "—"}</td>
+                            <td className="py-3.5 text-xs text-slate-400">
+                              {student.lastActive ? new Date(student.lastActive).toLocaleTimeString() : "—"}
+                            </td>
+                            <td className="py-3.5 text-center font-mono text-xs font-bold text-slate-700">
+                              {student.score !== null ? `${student.score}%` : "—"}
+                            </td>
+                            <td className="py-3.5 text-right">
+                              {student.status !== "SUBMITTED" ? (
+                                <button
+                                  onClick={() => handleForceSubmit(student.studentId)}
+                                  className="px-2.5 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition shadow-sm cursor-pointer border-b-2 border-red-800 font-sans"
+                                >
+                                  Force Submit
+                                </button>
+                              ) : (
+                                <span className="text-xs text-slate-400 italic">Submitted</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

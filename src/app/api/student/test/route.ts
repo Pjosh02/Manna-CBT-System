@@ -61,6 +61,45 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "You have already submitted this exam." }, { status: 400 });
     }
 
+    // Check and update/create ExamSession
+    const ipAddress = request.headers.get("x-forwarded-for")?.split(",")[0] || request.headers.get("x-real-ip") || "127.0.0.1";
+    const userAgent = request.headers.get("user-agent") || "";
+
+    let session = await prisma.examSession.findUnique({
+      where: {
+        examId_studentId: {
+          examId,
+          studentId: payload.id,
+        },
+      },
+    });
+
+    if (session && session.status === "SUBMITTED") {
+      return NextResponse.json({ error: "You have already submitted this exam." }, { status: 400 });
+    }
+
+    if (!session) {
+      session = await prisma.examSession.create({
+        data: {
+          examId,
+          studentId: payload.id,
+          ipAddress,
+          userAgent,
+          status: "IN_PROGRESS",
+        },
+      });
+    } else {
+      session = await prisma.examSession.update({
+        where: { id: session.id },
+        data: {
+          status: "IN_PROGRESS",
+          lastPing: new Date(),
+          ipAddress,
+          userAgent,
+        },
+      });
+    }
+
     // 2. Fetch all questions for each subject in this exam
     const subjectsData = [];
 
@@ -99,6 +138,8 @@ export async function GET(request: NextRequest) {
           optionB: q.optionB,
           optionC: q.optionC,
           optionD: q.optionD,
+          optionE: q.optionE,
+          optionF: q.optionF,
         })),
       });
     }
@@ -129,6 +170,9 @@ export async function GET(request: NextRequest) {
       },
       subjects: subjectsData,
       attempts: attemptsMap,
+      tabSwitches: session.tabSwitches,
+      sessionStatus: session.status,
+      studentId: payload.id,
     });
   } catch (error) {
     console.error("GET student test error:", error);

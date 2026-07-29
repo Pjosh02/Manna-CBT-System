@@ -102,11 +102,14 @@ export async function POST(request: NextRequest) {
 
     const trimmedName = name.trim();
 
-    // Check if subject exists (case-insensitive) for this teacher or is admin-created
+    // Check if subject exists (case-insensitive) for this teacher or is admin-created in this specific class
     let subject = await prisma.subject.findFirst({
       where: {
         name: {
           equals: trimmedName,
+        },
+        classes: {
+          some: { id: classId },
         },
         OR: [
           { teacherId: null },
@@ -115,19 +118,8 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    if (subject) {
-      // Connect to existing subject
-      subject = await prisma.subject.update({
-        where: { id: subject.id },
-        data: {
-          classes: {
-            connect: { id: classId },
-          },
-        },
-        include: { classes: true },
-      });
-    } else {
-      // Create new subject
+    if (!subject) {
+      // Create new subject specific to this class
       subject = await prisma.subject.create({
         data: {
           name: trimmedName,

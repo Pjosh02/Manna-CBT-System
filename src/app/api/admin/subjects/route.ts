@@ -29,18 +29,33 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Subject name is required" }, { status: 400 });
     }
 
-    // Create subject and connect optional classes
-    const newSubject = await prisma.subject.create({
-      data: {
-        name,
-        classes: classIds && Array.isArray(classIds)
-          ? { connect: classIds.map((id: string) => ({ id })) }
-          : undefined,
-      },
-      include: { classes: true },
-    });
+    let firstSubject: any = null;
 
-    return NextResponse.json({ subject: newSubject }, { status: 201 });
+    if (classIds && Array.isArray(classIds) && classIds.length > 0) {
+      for (const classId of classIds) {
+        const created = await prisma.subject.create({
+          data: {
+            name,
+            classes: {
+              connect: { id: classId },
+            },
+          },
+          include: { classes: true },
+        });
+        if (!firstSubject) {
+          firstSubject = created;
+        }
+      }
+    } else {
+      firstSubject = await prisma.subject.create({
+        data: {
+          name,
+        },
+        include: { classes: true },
+      });
+    }
+
+    return NextResponse.json({ subject: firstSubject }, { status: 201 });
   } catch (error) {
     console.error("POST subject error:", error);
     return NextResponse.json({ error: "Failed to create subject" }, { status: 500 });

@@ -71,6 +71,8 @@ function NewQuestionForm() {
     optionD: "",
     correctOption: "A",
     points: 1,
+    difficulty: "MEDIUM",
+    tags: "",
   });
 
   // Validation errors
@@ -124,6 +126,8 @@ function NewQuestionForm() {
               optionD: questionToEdit.optionD || "",
               correctOption: questionToEdit.correctOption || "A",
               points: questionToEdit.points || 1,
+              difficulty: questionToEdit.difficulty || "MEDIUM",
+              tags: questionToEdit.tags || "",
             });
           }
         }
@@ -294,6 +298,8 @@ function NewQuestionForm() {
       assessmentType: form.assessmentType,
       points: form.points,
       status: statusType,
+      difficulty: form.difficulty,
+      tags: form.tags,
     };
 
     try {
@@ -327,6 +333,8 @@ function NewQuestionForm() {
           optionD: "",
           correctOption: "A",
           points: 1,
+          difficulty: "MEDIUM",
+          tags: "",
         }));
       } else {
         router.push("/teacher");
@@ -637,6 +645,33 @@ function NewQuestionForm() {
                   className={`w-full bg-slate-50 border ${errors.points ? 'border-red-500 ring-2 ring-red-500/10' : 'border-slate-200 focus:border-[#1B2A6B]'} focus:ring-2 focus:ring-[#1B2A6B]/15 text-slate-850 rounded-lg p-2.5 outline-none transition font-medium`}
                 />
                 {errors.points && <p className="text-xs text-red-600 mt-1 font-medium">{errors.points}</p>}
+              </div>
+            </div>
+
+            {/* DIFFICULTY & TAGS */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Difficulty Level</label>
+                <select
+                  value={form.difficulty}
+                  onChange={(e) => setForm({ ...form, difficulty: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-[#1B2A6B] focus:ring-2 focus:ring-[#1B2A6B]/15 text-slate-800 rounded-lg p-2.5 outline-none transition font-medium"
+                >
+                  <option value="EASY">EASY</option>
+                  <option value="MEDIUM">MEDIUM</option>
+                  <option value="HARD">HARD</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Tags (Comma Separated)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. algebra, vectors, speed"
+                  value={form.tags}
+                  onChange={(e) => setForm({ ...form, tags: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-[#1B2A6B] focus:ring-2 focus:ring-[#1B2A6B]/15 text-slate-850 rounded-lg p-2.5 outline-none transition font-medium"
+                />
               </div>
             </div>
 

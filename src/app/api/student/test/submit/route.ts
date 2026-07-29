@@ -120,6 +120,25 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Update ExamSession status to SUBMITTED
+    await prisma.examSession.upsert({
+      where: {
+        examId_studentId: {
+          examId,
+          studentId,
+        },
+      },
+      update: {
+        status: "SUBMITTED",
+        lastPing: new Date(),
+      },
+      create: {
+        examId,
+        studentId,
+        status: "SUBMITTED",
+      },
+    });
+
     return NextResponse.json({
       success: true,
       result: {

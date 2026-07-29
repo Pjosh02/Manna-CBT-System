@@ -24,6 +24,38 @@ import {
 } from "lucide-react";
 import MathRenderer from "@/components/MathRenderer";
 
+function hashString(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return hash;
+}
+
+function shuffleOptions(question: any, studentId: string) {
+  if (!question) return [];
+  const options = [
+    { key: "A", text: question.optionA },
+    { key: "B", text: question.optionB },
+    { key: "C", text: question.optionC },
+    { key: "D", text: question.optionD },
+  ];
+  if (question.optionE) options.push({ key: "E", text: question.optionE });
+  if (question.optionF) options.push({ key: "F", text: question.optionF });
+
+  if (!studentId) return options; // Fallback if studentId is not loaded yet
+
+  // Deterministic shuffle
+  return options
+    .map((opt) => ({
+      opt,
+      hash: hashString(studentId + question.id + opt.key),
+    }))
+    .sort((a, b) => a.hash - b.hash)
+    .map((item) => item.opt);
+}
+
 export default function TestPage({ params }: { params: Promise<{ examId: string }> }) {
   const router = useRouter();
   const unwrappedParams = React.use(params);
@@ -34,6 +66,9 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
   const [exam, setExam] = useState<any>(null);
   const [subjects, setSubjects] = useState<any[]>([]);
   const [attempts, setAttempts] = useState<Record<string, { selectedOption: string | null; isFlagged: boolean }>>({});
+  const [studentId, setStudentId] = useState<string>("");
+  const [tabSwitchesCount, setTabSwitchesCount] = useState<number>(0);
+  const [examStarted, setExamStarted] = useState<boolean>(false);
 
   // Active exam tracking
   const [activeSubjectIndex, setActiveSubjectIndex] = useState(0);
@@ -81,26 +116,32 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
       setExam(data.exam);
       setSubjects(data.subjects || []);
       setAttempts(data.attempts || {});
+      setStudentId(data.studentId || "");
+      setTabSwitchesCount(data.tabSwitches || 0);
 
-      // Calculate remaining seconds using localStorage start time to persist across switches/focus loss
+      // Check if already started
       const localStorageKey = `cbt_exam_start_${examId}`;
-      let examStart = localStorage.getItem(localStorageKey);
+      const examStart = localStorage.getItem(localStorageKey);
       const now = Date.now();
 
-      if (!examStart) {
-        examStart = String(now);
-        localStorage.setItem(localStorageKey, examStart);
+      if (examStart) {
+        setExamStarted(true);
+        const startTimeStamp = parseInt(examStart, 10);
+        const durationSeconds = data.exam.durationMinutes * 60;
+        const elapsedSeconds = Math.floor((now - startTimeStamp) / 1000);
+        const remainingSeconds = Math.max(0, durationSeconds - elapsedSeconds);
+
+        setTimeLeft(remainingSeconds);
+        timeLeftRef.current = remainingSeconds;
+        setTotalDuration(durationSeconds);
+        initialTimeLeftRef.current = remainingSeconds;
+      } else {
+        const durationSeconds = data.exam.durationMinutes * 60;
+        setTimeLeft(durationSeconds);
+        timeLeftRef.current = durationSeconds;
+        setTotalDuration(durationSeconds);
+        initialTimeLeftRef.current = durationSeconds;
       }
-
-      const startTimeStamp = parseInt(examStart, 10);
-      const durationSeconds = data.exam.durationMinutes * 60;
-      const elapsedSeconds = Math.floor((now - startTimeStamp) / 1000);
-      const remainingSeconds = Math.max(0, durationSeconds - elapsedSeconds);
-
-      setTimeLeft(remainingSeconds);
-      timeLeftRef.current = remainingSeconds;
-      setTotalDuration(durationSeconds);
-      initialTimeLeftRef.current = remainingSeconds;
     } catch (err) {
       console.error(err);
     } finally {
@@ -114,26 +155,77 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
 
   // Proctoring: Blur detection (Tab switching warning)
   useEffect(() => {
-    if (loading || !exam) return;
+    if (loading || !exam || !examStarted) return;
 
-    const handleBlur = () => {
+    const handleBlur = async () => {
       // Suppress warning if submit modal or question reporting modal is active
       if (showSubmitModal || reportQuestionModal) return;
 
-      const warningText = `Tab switch detected at ${new Date().toLocaleTimeString()}. Please stay on this window.`;
-      setProctorWarnings((prev) => [...prev, warningText]);
-      alert("WARNING: Tab switching is monitored. This incident has been logged.");
+      try {
+        const res = await fetch("/api/student/test/log-infraction", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ examId }),
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+          setTabSwitchesCount(data.tabSwitches);
+          
+          if (data.status === "SUBMITTED" || data.tabSwitches >= 3) {
+            alert("EXAM AUTO-SUBMITTED: You have exceeded the maximum allowed tab switches (3 warnings). Your exam is being submitted now.");
+            submitExam();
+            return;
+          }
+
+          const warningText = `Tab switch detected at ${new Date().toLocaleTimeString()}. Warning ${data.tabSwitches} of 3.`;
+          setProctorWarnings((prev) => [...prev, warningText]);
+          alert(`WARNING: Tab switching is monitored. This is warning ${data.tabSwitches} of 3. Exceeding 3 warnings will result in auto-submission.`);
+        }
+      } catch (err) {
+        console.error("Error logging infraction:", err);
+      }
     };
 
     window.addEventListener("blur", handleBlur);
     return () => {
       window.removeEventListener("blur", handleBlur);
     };
-  }, [loading, exam, showSubmitModal, reportQuestionModal]);
+  }, [loading, exam, examId, examStarted, showSubmitModal, reportQuestionModal]);
+
+  // Ping hook to track student active state
+  useEffect(() => {
+    if (loading || !exam || !examStarted) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch("/api/student/test/ping", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ examId }),
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+          setTabSwitchesCount(data.tabSwitches);
+          if (data.status === "SUBMITTED") {
+            clearInterval(interval);
+            alert("Your exam has been submitted (either by you, a proctor, or due to cheating warnings). Redirecting...");
+            localStorage.removeItem(`cbt_exam_start_${examId}`);
+            router.push("/student");
+          }
+        }
+      } catch (err) {
+        console.error("Ping error:", err);
+      }
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [loading, exam, examId, examStarted, router]);
 
   // Timer countdown hook using absolute time tracking
   useEffect(() => {
-    if (loading || !exam) return;
+    if (loading || !exam || !examStarted) return;
 
     const localStorageKey = `cbt_exam_start_${examId}`;
     const storedStart = localStorage.getItem(localStorageKey);
@@ -173,7 +265,7 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [loading, exam, examId]);
+  }, [loading, exam, examId, examStarted]);
 
   // Active question getters
   const activeSubject = subjects[activeSubjectIndex];
@@ -339,6 +431,42 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
             <img src="/logo.png" alt="Manna Academy Logo" className="w-16 h-16 object-contain" />
           </div>
           <span className="text-slate-500 text-sm font-semibold">Building examination environment...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!examStarted) {
+    return (
+      <div className="min-h-screen bg-[#1B2A6B] flex items-center justify-center p-6 text-white text-center font-sans">
+        <div className="max-w-md w-full bg-white text-slate-800 rounded-3xl p-8 shadow-2xl space-y-6 animate-fade-in">
+          <img src="/logo.png" alt="Manna Academy Logo" className="w-20 h-20 object-contain mx-auto" />
+          <div>
+            <h2 className="text-xl font-black text-[#1B2A6B]">{exam?.title || "CBT Practice Examination"}</h2>
+            <p className="text-xs text-slate-400 mt-1 uppercase font-bold tracking-wider">Exam Environment Entrance</p>
+          </div>
+
+          <div className="text-left bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs space-y-2 text-slate-550">
+            <p className="font-bold text-slate-700 text-sm pb-1.5 border-b border-slate-200">System Rules & Guidelines:</p>
+            <p>• ⏱️ **Duration**: You have **{exam?.durationMinutes} minutes** to complete the exam.</p>
+            <p>• 💻 **Fullscreen**: Fullscreen mode is enforced. Exiting fullscreen is monitored.</p>
+            <p>• 🚫 **Tab Switching**: Tab switching, minimizing, or opening other applications is **forbidden** and logged. Exceeding **3 warnings** results in auto-submission.</p>
+            <p>• 💾 **Autosave**: Answers are saved automatically after selection.</p>
+          </div>
+
+          <button
+            onClick={() => {
+              const localStorageKey = `cbt_exam_start_${examId}`;
+              localStorage.setItem(localStorageKey, String(Date.now()));
+              setExamStarted(true);
+              if (document.documentElement.requestFullscreen) {
+                document.documentElement.requestFullscreen().then(() => setIsFullscreen(true)).catch((err) => console.log("Fullscreen request failed", err));
+              }
+            }}
+            className="w-full bg-[#1B2A6B] hover:bg-[#152052] text-white border-b-4 border-[#FFD100] hover:border-[#FFD100]/80 font-bold py-3.5 rounded-2xl shadow-lg transition active:scale-95 cursor-pointer uppercase tracking-wider text-xs font-sans"
+          >
+            Start Exam
+          </button>
         </div>
       </div>
     );
@@ -583,15 +711,9 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
 
                 {/* Answers A–F options vertical list */}
                 <div className="space-y-3.5 pl-13">
-                  {[
-                    { key: "A", text: activeQuestion?.optionA },
-                    { key: "B", text: activeQuestion?.optionB },
-                    { key: "C", text: activeQuestion?.optionC },
-                    { key: "D", text: activeQuestion?.optionD },
-                    ...(activeQuestion?.optionE ? [{ key: "E", text: activeQuestion.optionE }] : []),
-                    ...(activeQuestion?.optionF ? [{ key: "F", text: activeQuestion.optionF }] : []),
-                  ].map((opt) => {
+                  {shuffleOptions(activeQuestion, studentId).map((opt, index) => {
                     const isSelected = activeAttempt.selectedOption === opt.key;
+                    const visualLabel = ["A", "B", "C", "D", "E", "F"][index];
                     return (
                       <div
                         key={opt.key}
@@ -611,8 +733,8 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
                           <div className={`w-2 h-2 rounded-full bg-[#FFD100] ${isSelected ? "block" : "hidden"}`} />
                         </div>
 
-                        {/* Letter A-D */}
-                        <span className={`font-extrabold w-4 ${isSelected ? 'text-[#1B2A6B]' : 'text-slate-455'}`}>{opt.key}.</span>
+                        {/* Letter A-F (Visual label) */}
+                        <span className={`font-extrabold w-4 ${isSelected ? 'text-[#1B2A6B]' : 'text-slate-455'}`}>{visualLabel}.</span>
 
                         {/* Answer text */}
                         {opt.text ? (
