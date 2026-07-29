@@ -166,6 +166,21 @@ export async function GET(
       console.error("Error reading local KaTeX stylesheet:", e);
     }
 
+    // Load school logo and encode as base64 Data-URI
+    let logoBase64 = "";
+    try {
+      const logoPath = path.join(process.cwd(), "public", "logo.png");
+      if (fs.existsSync(logoPath)) {
+        const logoData = fs.readFileSync(logoPath);
+        logoBase64 = `data:image/png;base64,${logoData.toString("base64")}`;
+      }
+    } catch (e) {
+      console.error("Error reading logo file:", e);
+    }
+
+    const subjectListStr = exam.examSubjects.map((es) => es.subject.name).join(", ");
+    const windowStr = `${new Date(exam.startTime).toLocaleDateString()} - ${new Date(exam.endTime).toLocaleDateString()}`;
+
     // 6. Build the rich HTML representation of the exam review
     let htmlContent = `
 <!DOCTYPE html>
@@ -196,22 +211,38 @@ export async function GET(
     .header-row {
       display: flex;
       justify-content: space-between;
-      align-items: flex-start;
+      align-items: center;
     }
-    .header h1 {
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+    .logo-img {
+      height: 60px;
+      width: auto;
+      object-fit: contain;
+    }
+    .school-name {
       font-size: 22px;
-      margin: 0 0 4px 0;
+      margin: 0;
       color: #1B2A6B;
-      font-weight: 800;
+      font-weight: 850;
       text-transform: uppercase;
       letter-spacing: -0.2px;
+      line-height: 1.1;
     }
-    .header .tagline {
+    .exam-title-header {
+      font-size: 13px;
+      color: #0f172a;
+      font-weight: 700;
+      margin-top: 4px;
+    }
+    .exam-subject-header, .exam-window-header {
       font-size: 11px;
       color: #64748b;
       font-weight: 500;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+      margin-top: 1px;
     }
     .grid-meta {
       display: grid;
@@ -235,6 +266,13 @@ export async function GET(
       display: flex;
       flex-direction: column;
       align-items: flex-end;
+    }
+    .score-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: #64748b;
+      text-transform: uppercase;
+      margin-bottom: 4px;
     }
     .score-percentage {
       font-size: 28px;
@@ -418,21 +456,25 @@ export async function GET(
 <body>
   <div class="header">
     <div class="header-row">
-      <div>
-        <h1>Manna CBT Review</h1>
-        <div class="tagline">Official Proctored Assessment Results</div>
+      <div class="logo-container">
+        ${logoBase64 ? `<img src="${logoBase64}" class="logo-img" alt="Manna Academy Logo" />` : ""}
+        <div>
+          <h1 class="school-name">Manna Academy</h1>
+          <div class="exam-title-header">${exam.title}</div>
+          <div class="exam-subject-header">Subject: ${subjectListStr}</div>
+          <div class="exam-window-header">Exam Window: ${windowStr}</div>
+        </div>
       </div>
       <div class="score-badge-container">
+        <div class="score-label">Score Received</div>
         <div class="score-percentage">${result.score}%</div>
       </div>
     </div>
     
     <div class="grid-meta">
       <div class="meta-item">Candidate: <span>${result.student.name}</span></div>
-      <div class="meta-item">Exam Title: <span>${exam.title}</span></div>
       <div class="meta-item">Roll Number: <span>${result.student.rollNumber || "N/A"}</span></div>
       <div class="meta-item">Completion Date: <span>${new Date(result.createdAt).toLocaleString()}</span></div>
-      <div class="meta-item">Total Score Weight: <span>${result.score}% (${result.totalQuestions} Questions)</span></div>
       <div class="meta-item">Duration Spent: <span>${Math.floor(result.timeSpent / 60)}m ${result.timeSpent % 60}s</span></div>
     </div>
   </div>

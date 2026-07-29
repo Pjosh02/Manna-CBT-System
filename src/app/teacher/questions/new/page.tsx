@@ -37,6 +37,7 @@ function NewQuestionForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("edit");
+  const classId = searchParams.get("classId");
 
   // Authentication & Subject Lists
   const [user, setUser] = useState<any>(null);
@@ -337,7 +338,7 @@ function NewQuestionForm() {
           tags: "",
         }));
       } else {
-        router.push("/teacher");
+        router.push(classId ? `/teacher?classId=${classId}` : "/teacher");
       }
     } catch (err: any) {
       setErrorMsg(err.message || "Failed to process question save request.");
@@ -471,7 +472,7 @@ function NewQuestionForm() {
         <header className="bg-[#1B2A6B] border-b border-[#152052] text-white px-6 py-4 flex items-center justify-between sticky top-0 z-40 shadow-sm">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => router.push("/teacher")}
+              onClick={() => router.push(classId ? `/teacher?classId=${classId}` : "/teacher")}
               className="p-2 hover:bg-[#152052] rounded-lg transition mr-1 cursor-pointer"
               title="Go back to dashboard"
             >
@@ -515,7 +516,8 @@ function NewQuestionForm() {
                   <button
                     key={sub.id}
                     onClick={() => {
-                      router.replace(`/teacher/questions/new?subjectId=${sub.id}`);
+                      const resolvedClassId = sub.classes?.[0]?.id || "";
+                      router.replace(`/teacher/questions/new?subjectId=${sub.id}${resolvedClassId ? `&classId=${resolvedClassId}` : ""}`);
                       setForm((prev) => ({ ...prev, subjectId: sub.id }));
                     }}
                     className="flex items-center justify-between p-4 rounded-xl border border-slate-200 hover:border-[#1B2A6B] hover:bg-[#1B2A6B]/5 text-left transition font-semibold text-slate-700 hover:text-[#1B2A6B] cursor-pointer group"
@@ -528,7 +530,7 @@ function NewQuestionForm() {
             )}
             
             <button
-              onClick={() => router.push("/teacher")}
+              onClick={() => router.push(classId ? `/teacher?classId=${classId}` : "/teacher")}
               className="text-xs text-slate-400 hover:text-slate-600 transition block mx-auto underline font-sans"
             >
               Cancel and go back
@@ -545,7 +547,7 @@ function NewQuestionForm() {
       <header className="bg-[#1B2A6B] border-b border-[#152052] text-white px-6 py-4 flex items-center justify-between sticky top-0 z-40 shadow-sm">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => router.push("/teacher")}
+            onClick={() => router.push(classId ? `/teacher?classId=${classId}` : "/teacher")}
             className="p-2 hover:bg-[#152052] rounded-lg transition mr-1 cursor-pointer"
             title="Go back to dashboard"
           >
@@ -1131,7 +1133,7 @@ function NewQuestionForm() {
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 p-6 bg-white border border-slate-200 rounded-2xl shadow-sm">
             <button
               type="button"
-              onClick={() => router.push("/teacher")}
+              onClick={() => router.push(classId ? `/teacher?classId=${classId}` : "/teacher")}
               className="bg-white hover:bg-slate-50 text-slate-700 px-5 py-2.5 border border-slate-200 rounded-xl font-semibold transition cursor-pointer shadow-sm text-center"
             >
               Cancel

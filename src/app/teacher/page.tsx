@@ -134,8 +134,35 @@ export default function TeacherDashboard() {
         setUser(sessionData.user);
         
         const userClasses = sessionData.user.classes || [];
-        const initialClassId = sessionData.user.classId || (userClasses.length > 0 ? userClasses[0].id : "");
+        
+        let initialClassId = "";
+        if (typeof window !== "undefined") {
+          const params = new URLSearchParams(window.location.search);
+          initialClassId = params.get("classId") || "";
+        }
+        
+        if (!initialClassId) {
+          const savedClassId = localStorage.getItem("teacher_selected_class_id");
+          if (savedClassId && userClasses.some((c: any) => c.id === savedClassId)) {
+            initialClassId = savedClassId;
+          }
+        }
+        
+        if (!initialClassId) {
+          initialClassId = sessionData.user.classId || (userClasses.length > 0 ? userClasses[0].id : "");
+        }
+        
         setSelectedClassId(initialClassId);
+        if (initialClassId) {
+          localStorage.setItem("teacher_selected_class_id", initialClassId);
+          if (typeof window !== "undefined") {
+            const url = new URL(window.location.href);
+            if (url.searchParams.get("classId") !== initialClassId) {
+              url.searchParams.set("classId", initialClassId);
+              window.history.replaceState({}, "", url.toString());
+            }
+          }
+        }
         fetchClassData(initialClassId);
       } catch (err) {
         console.error("Error loading session:", err);
@@ -196,6 +223,12 @@ export default function TeacherDashboard() {
 
   const handleClassChange = (newClassId: string) => {
     setSelectedClassId(newClassId);
+    localStorage.setItem("teacher_selected_class_id", newClassId);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("classId", newClassId);
+      window.history.replaceState({}, "", url.toString());
+    }
     fetchClassData(newClassId);
   };
 
@@ -763,7 +796,7 @@ export default function TeacherDashboard() {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                router.push(`/teacher/questions/new?subjectId=${sub.id}`);
+                                router.push(`/teacher/questions/new?subjectId=${sub.id}&classId=${selectedClassId}`);
                               }}
                               className="flex items-center gap-1 bg-[#1B2A6B] hover:bg-[#152052] text-white text-xs px-3 py-1.5 rounded-lg font-semibold transition cursor-pointer"
                             >
@@ -869,7 +902,7 @@ export default function TeacherDashboard() {
 
                         <div className="flex gap-2 opacity-80 md:opacity-0 group-hover:opacity-100 transition duration-200">
                           <button
-                            onClick={() => router.push(`/teacher/questions/new?edit=${q.id}`)}
+                            onClick={() => router.push(`/teacher/questions/new?edit=${q.id}&classId=${selectedClassId}`)}
                             className="p-1 text-slate-500 hover:text-[#1B2A6B] transition cursor-pointer"
                             title="Edit Question"
                           >
