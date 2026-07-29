@@ -429,7 +429,7 @@ function NewQuestionForm() {
                 {item.key}
               </div>
               {item.val ? (
-                <MathRenderer text={item.val} inline={true} className={q.correctOption === item.key ? "font-bold text-[#1B2A6B]" : "text-slate-600"} />
+                <MathRenderer text={item.val} inline={true} isHtml={true} className={q.correctOption === item.key ? "font-bold text-[#1B2A6B]" : "text-slate-600"} />
               ) : (
                 <span className="text-slate-400 italic">Option content not provided</span>
               )}

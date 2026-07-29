@@ -1102,10 +1102,10 @@ export default function AdminDashboard() {
                                 <span>"</span>
                               </div>
                               <div className="flex flex-wrap gap-2 text-[10px] font-mono text-slate-400 mt-1">
-                                <span className="flex items-center gap-0.5">A: <MathRenderer text={rep.question.optionA} inline={true} /></span>
-                                <span className="flex items-center gap-0.5">B: <MathRenderer text={rep.question.optionB} inline={true} /></span>
-                                <span className="flex items-center gap-0.5">C: <MathRenderer text={rep.question.optionC} inline={true} /></span>
-                                <span className="flex items-center gap-0.5">D: <MathRenderer text={rep.question.optionD} inline={true} /></span>
+                                <span className="flex items-center gap-0.5">A: <MathRenderer text={rep.question.optionA} inline={true} isHtml={true} /></span>
+                                <span className="flex items-center gap-0.5">B: <MathRenderer text={rep.question.optionB} inline={true} isHtml={true} /></span>
+                                <span className="flex items-center gap-0.5">C: <MathRenderer text={rep.question.optionC} inline={true} isHtml={true} /></span>
+                                <span className="flex items-center gap-0.5">D: <MathRenderer text={rep.question.optionD} inline={true} isHtml={true} /></span>
                                 <span className="text-[#FFD100] font-bold">Correct: {rep.question.correctOption}</span>
                               </div>
                             </td>

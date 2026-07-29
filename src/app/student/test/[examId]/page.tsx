@@ -616,7 +616,7 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
 
                         {/* Answer text */}
                         {opt.text ? (
-                          <MathRenderer text={opt.text} inline={true} className={`text-sm ${isSelected ? 'text-[#1B2A6B] font-semibold' : 'text-slate-800'}`} />
+                          <MathRenderer text={opt.text} inline={true} isHtml={true} className={`text-sm ${isSelected ? 'text-[#1B2A6B] font-semibold' : 'text-slate-800'}`} />
                         ) : (
                           <span className="text-slate-400 italic">Option content not loaded</span>
                         )}

@@ -794,7 +794,7 @@ export default function TeacherDashboard() {
                               {opt.key}
                             </span>
                             {opt.label ? (
-                              <MathRenderer text={opt.label} inline={true} className={q.correctOption === opt.key ? "font-bold text-emerald-400" : "text-slate-500"} />
+                              <MathRenderer text={opt.label} inline={true} isHtml={true} className={q.correctOption === opt.key ? "font-bold text-emerald-400" : "text-slate-500"} />
                             ) : (
                               <span className="text-slate-400 italic">Option content not provided</span>
                             )}

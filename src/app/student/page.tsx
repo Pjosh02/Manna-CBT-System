@@ -18,6 +18,7 @@ import {
   AlertCircle,
   Award,
   Edit,
+  Download,
 } from "lucide-react";
 
 export default function StudentDashboard() {
@@ -33,6 +34,42 @@ export default function StudentDashboard() {
   const [passwordSubmitting, setPasswordSubmitting] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  
+  const [selectedExamId, setSelectedExamId] = useState<string | null>(null);
+  const [downloadingExamId, setDownloadingExamId] = useState<string | null>(null);
+
+  // Auto-select first released results exam when opening results modal
+  useEffect(() => {
+    if (showResultsModal) {
+      const firstReleased = exams.find((e) => e.hasTaken && e.resultsReleased);
+      if (firstReleased) {
+        setSelectedExamId(firstReleased.id);
+      } else {
+        setSelectedExamId(null);
+      }
+    }
+  }, [showResultsModal, exams]);
+
+  const handleDownloadQuestions = async (examId: string) => {
+    if (!examId) return;
+    setDownloadingExamId(examId);
+    try {
+      const link = document.createElement("a");
+      link.href = `/api/results/${examId}/download-review`;
+      link.target = "_blank";
+      link.setAttribute("download", `Exam_Review_${examId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      console.error("Error downloading review PDF:", err);
+      alert("Failed to download questions. Please try again.");
+    } finally {
+      setTimeout(() => {
+        setDownloadingExamId(null);
+      }, 2000);
+    }
+  };
 
   const fetchSessionAndExams = async () => {
     setLoading(true);
@@ -510,41 +547,79 @@ export default function StudentDashboard() {
                 <p className="text-sm text-slate-400 text-center py-6">You have not completed any examinations yet.</p>
               ) : (
                 <div className="space-y-3">
-                  {exams.filter((e: any) => e.hasTaken).map((exam) => (
-                    <div key={exam.id} className="p-4 bg-slate-50 border border-slate-150 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in">
-                      <div>
-                        <h4 className="text-sm font-bold text-slate-800">{exam.title}</h4>
-                        <p className="text-xs text-slate-400 mt-0.5">
-                          Window: {new Date(exam.startTime).toLocaleDateString()} - {new Date(exam.endTime).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        {exam.resultsReleased ? (
-                          <div className="text-right">
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 mr-2">
-                              Released
+                  {exams.filter((e: any) => e.hasTaken).map((exam) => {
+                    const isSelected = selectedExamId === exam.id;
+                    const isReleased = exam.resultsReleased;
+                    return (
+                      <div 
+                        key={exam.id} 
+                        onClick={() => {
+                          if (isReleased) {
+                            setSelectedExamId(exam.id);
+                          }
+                        }}
+                        className={`p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in border transition ${
+                          isReleased
+                            ? isSelected
+                              ? "bg-blue-50/70 border-[#1B2A6B] ring-2 ring-[#1B2A6B]/5 cursor-pointer font-semibold"
+                              : "bg-slate-50 border-slate-150 hover:border-slate-350 cursor-pointer"
+                            : "bg-slate-50 border-slate-150 opacity-70 cursor-not-allowed"
+                        }`}
+                      >
+                        <div>
+                          <h4 className="text-sm font-bold text-slate-800">{exam.title}</h4>
+                          <p className="text-xs text-slate-400 mt-0.5">
+                            Window: {new Date(exam.startTime).toLocaleDateString()} - {new Date(exam.endTime).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {isReleased ? (
+                            <div className="text-right">
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 mr-2">
+                                Released
+                              </span>
+                              <span className="font-mono text-sm font-extrabold text-emerald-600 bg-emerald-50 px-2.5 py-1.5 rounded-lg border border-emerald-250 font-bold">
+                                {exam.score}%
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-xs font-semibold text-slate-450 bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-lg">
+                              ⌛ Pending Release
                             </span>
-                            <span className="font-mono text-sm font-extrabold text-emerald-600 bg-emerald-50 px-2.5 py-1.5 rounded-lg border border-emerald-250 font-bold">
-                              {exam.score}%
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="text-xs font-semibold text-slate-450 bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-lg">
-                            ⌛ Pending Release
-                          </span>
-                        )}
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
 
-            <div className="p-6 border-t border-slate-100 flex justify-end">
+            <div className="p-6 border-t border-slate-100 flex justify-end gap-3">
+              {selectedExamId && (
+                <button
+                  type="button"
+                  onClick={() => handleDownloadQuestions(selectedExamId)}
+                  disabled={downloadingExamId === selectedExamId}
+                  className="px-5 py-2.5 text-xs font-bold bg-[#FFD100] hover:bg-[#FFD100]/95 text-[#1B2A6B] rounded-xl transition cursor-pointer shadow-sm flex items-center gap-1.5 border-b-2 border-b-[#1B2A6B] disabled:opacity-50"
+                >
+                  {downloadingExamId === selectedExamId ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Generating PDF...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Download Questions</span>
+                    </>
+                  )}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setShowResultsModal(false)}
-                className="px-5 py-2.5 text-xs font-bold bg-[#1B2A6B] hover:bg-[#152052] text-white rounded-xl transition cursor-pointer shadow-sm"
+                className="px-5 py-2.5 text-xs font-bold bg-slate-150 hover:bg-slate-200 text-slate-700 rounded-xl transition cursor-pointer shadow-sm border border-slate-200"
               >
                 Close Sheet
               </button>

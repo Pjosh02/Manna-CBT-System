@@ -8,10 +8,19 @@ interface MathRendererProps {
   inline?: boolean;
 }
 
+function escapeHtml(unsafe: string) {
+  return unsafe
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 export default function MathRenderer({
   text,
   className = "",
-  isHtml = false,
+  isHtml = true,
   inline = false,
 }: MathRendererProps) {
   const containerRef = useRef<any>(null);
@@ -34,20 +43,11 @@ export default function MathRenderer({
     }
   }, [text, isHtml]);
 
-  if (isHtml) {
-    // Replace newlines with break tags for visual structure
-    const formatted = text.replace(/\n/g, "<br/>");
-    if (inline) {
-      return (
-        <span
-          ref={containerRef}
-          className={className}
-          dangerouslySetInnerHTML={{ __html: formatted }}
-        />
-      );
-    }
+  const formatted = isHtml ? text.replace(/\n/g, "<br/>") : escapeHtml(text);
+
+  if (inline) {
     return (
-      <div
+      <span
         ref={containerRef}
         className={className}
         dangerouslySetInnerHTML={{ __html: formatted }}
@@ -55,17 +55,11 @@ export default function MathRenderer({
     );
   }
 
-  if (inline) {
-    return (
-      <span ref={containerRef} className={className}>
-        {text}
-      </span>
-    );
-  }
-
   return (
-    <div ref={containerRef} className={className}>
-      {text}
-    </div>
+    <div
+      ref={containerRef}
+      className={className}
+      dangerouslySetInnerHTML={{ __html: formatted }}
+    />
   );
 }
