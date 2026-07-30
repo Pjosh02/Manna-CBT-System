@@ -30,5 +30,11 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    "inspect_questions.ts",
+    "inspect_questions_scoping.ts",
+    "simulate_network_fetches.ts",
+    "test_questions_endpoint.ts"
+  ]
 }
