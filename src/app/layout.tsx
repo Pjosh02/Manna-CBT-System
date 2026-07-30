@@ -16,6 +16,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Manna CBT System",
   description: "Manna Computer Based Testing System",
+  icons: {
+    icon: "/favicon.png",
+  },
 };
 
 export default function RootLayout({
