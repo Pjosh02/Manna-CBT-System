@@ -61,19 +61,8 @@ export default function TeacherDashboard() {
   const [editingExamId, setEditingExamId] = useState<string | null>(null);
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
   
-  // Question Bank search & filters state
-  const [filterDifficulty, setFilterDifficulty] = useState<string>("");
-  const [filterTag, setFilterTag] = useState<string>("");
-
   const filteredQuestions = questions.filter((q) => {
     if (selectedSubjectId && q.subjectId !== selectedSubjectId) return false;
-    if (filterDifficulty && q.difficulty !== filterDifficulty) return false;
-    if (filterTag) {
-      if (!q.tags) return false;
-      const cleanTag = filterTag.toLowerCase().trim();
-      const tagsList = q.tags.toLowerCase().split(",").map((t: string) => t.trim());
-      if (!tagsList.some((t: string) => t.includes(cleanTag))) return false;
-    }
     return true;
   });
 
@@ -825,39 +814,13 @@ export default function TeacherDashboard() {
                   )}
                 </div>
               )}
-              {/* Question Filters Panel */}
-              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 shadow-sm grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[10px] uppercase font-bold tracking-wider text-slate-450 mb-1">Filter by Difficulty</label>
-                  <select
-                    value={filterDifficulty}
-                    onChange={(e) => setFilterDifficulty(e.target.value)}
-                    className="w-full bg-white border border-slate-200 text-slate-700 text-xs rounded-lg p-2 outline-none font-medium"
-                  >
-                    <option value="">All Difficulties</option>
-                    <option value="EASY">EASY</option>
-                    <option value="MEDIUM">MEDIUM</option>
-                    <option value="HARD">HARD</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[10px] uppercase font-bold tracking-wider text-slate-450 mb-1">Search Tags</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. algebra, speed"
-                    value={filterTag}
-                    onChange={(e) => setFilterTag(e.target.value)}
-                    className="w-full bg-white border border-slate-200 text-slate-750 text-xs rounded-lg p-2 outline-none font-medium font-sans"
-                  />
-                </div>
-              </div>
 
               {/* Questions Grid */}
               <div className="space-y-4">
                 {filteredQuestions.length === 0 ? (
                   <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center text-slate-400">
-                    {selectedSubjectId || filterDifficulty || filterTag
-                      ? "No questions found matching the selected subject or filter criteria."
+                    {selectedSubjectId
+                      ? "No questions found matching the selected subject."
                       : "Your questions bank is empty. Author questions to get started."}
                   </div>
                 ) : (
