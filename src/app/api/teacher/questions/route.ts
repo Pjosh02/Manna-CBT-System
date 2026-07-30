@@ -31,9 +31,9 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json({ questions });
-  } catch (error) {
+  } catch (error: any) {
     console.error("GET teacher questions error:", error);
-    return NextResponse.json({ error: "Failed to fetch questions" }, { status: 500 });
+    return NextResponse.json({ error: `Failed to fetch questions: ${error.message || error}` }, { status: 500 });
   }
 }
 
@@ -203,9 +203,9 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json({ question: newQuestion }, { status: 201 });
-  } catch (error) {
+  } catch (error: any) {
     console.error("POST question error:", error);
-    return NextResponse.json({ error: "Failed to create question" }, { status: 500 });
+    return NextResponse.json({ error: `Failed to create question: ${error.message || error}` }, { status: 500 });
   }
 }
 
@@ -293,9 +293,9 @@ export async function PATCH(request: NextRequest) {
     });
 
     return NextResponse.json({ question: updated });
-  } catch (error) {
+  } catch (error: any) {
     console.error("PATCH question error:", error);
-    return NextResponse.json({ error: "Failed to update question" }, { status: 500 });
+    return NextResponse.json({ error: `Failed to update question: ${error.message || error}` }, { status: 500 });
   }
 }
 
@@ -325,8 +325,8 @@ export async function DELETE(request: NextRequest) {
     });
 
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch (error: any) {
     console.error("DELETE question error:", error);
-    return NextResponse.json({ error: "Failed to delete question" }, { status: 500 });
+    return NextResponse.json({ error: `Failed to delete question: ${error.message || error}` }, { status: 500 });
   }
 }
