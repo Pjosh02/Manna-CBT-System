@@ -492,7 +492,7 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
           <span className="text-base font-extrabold text-white hidden sm:block">Manna Academy CBT Practice</span>
         </div>
 
-        <div className="flex-1 max-w-sm mx-6 relative">
+        <div className="hidden sm:block flex-1 max-w-sm mx-6 relative">
           <Search className="w-4 h-4 text-[#FFD100]/60 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
@@ -751,7 +751,7 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
 
             {/* Calculator sidebar overlay */}
             {showCalculator && (
-              <div className="w-80 border-t lg:border-t-0 lg:border-l border-slate-200 bg-white p-5 flex flex-col gap-4 relative z-30 animate-slide-in shadow-lg">
+              <div className="w-full lg:w-80 border-t lg:border-t-0 lg:border-l border-slate-200 bg-white p-5 flex flex-col gap-4 relative z-30 animate-slide-in shadow-lg">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                   <span className="text-sm font-bold flex items-center gap-2 text-slate-800">
                     <CalcIcon className="w-4 h-4 text-[#1B2A6B]" /> Floating Calculator

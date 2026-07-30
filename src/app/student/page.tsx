@@ -134,7 +134,7 @@ export default function StudentDashboard() {
         </div>
 
         {/* Center: Search Bar (Rounded, gray, magnifying glass) */}
-        <div className="flex-1 max-w-md mx-6 relative">
+        <div className="hidden sm:block flex-1 max-w-md mx-6 relative">
           <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
@@ -151,7 +151,7 @@ export default function StudentDashboard() {
             className="flex items-center gap-1.5 bg-[#FFD100] hover:bg-[#FFD100]/90 text-xs text-[#1B2A6B] font-extrabold px-3.5 py-2 rounded-full border border-transparent transition cursor-pointer shadow-sm"
           >
             <Award className="w-3.5 h-3.5 text-[#1B2A6B]" />
-            <span>Results</span>
+            <span className="hidden sm:inline">Results</span>
           </button>
 
           {/* Change Password Edit Button */}
@@ -229,10 +229,11 @@ export default function StudentDashboard() {
 
           <button
             onClick={handleLogout}
-            className="p-1.5 text-zinc-450 hover:text-[#FFD100] transition cursor-pointer"
+            className="p-1.5 text-zinc-450 hover:text-[#FFD100] transition cursor-pointer flex items-center gap-1.5"
             title="Log Out"
           >
             <LogOut className="w-4.5 h-4.5" />
+            <span className="hidden sm:inline text-xs font-semibold">Log out</span>
           </button>
         </div>
       </header>

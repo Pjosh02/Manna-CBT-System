@@ -485,10 +485,11 @@ export default function AdminDashboard() {
           </div>
           <button
             onClick={handleLogout}
-            className="p-2.5 bg-zinc-800 hover:bg-red-950/40 hover:text-[#FFD100] border border-zinc-700/80 hover:border-red-500/30 rounded-xl transition cursor-pointer"
+            className="p-2.5 bg-zinc-800 hover:bg-red-950/40 hover:text-[#FFD100] border border-zinc-700/80 hover:border-red-500/30 rounded-xl transition cursor-pointer flex items-center gap-2"
             title="Log Out"
           >
             <LogOut className="w-4 h-4" />
+            <span className="hidden sm:inline text-xs font-semibold">Log out</span>
           </button>
         </div>
       </header>
@@ -496,8 +497,8 @@ export default function AdminDashboard() {
       {/* Main Body */}
       <div className="flex-1 flex flex-col md:flex-row">
         {/* Navigation Sidebar */}
-        <aside className={`transition-all duration-300 ${sidebarCollapsed ? 'w-20' : 'w-full md:w-64'} bg-[#1B2A6B] md:border-r border-[#152052] p-4 space-y-1 text-white flex-shrink-0`}>
-          <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-between'} mb-4 px-2`}>
+        <aside className={`transition-all duration-300 ${sidebarCollapsed ? 'md:w-20' : 'md:w-64'} w-full bg-[#1B2A6B] md:border-r border-[#152052] p-3 md:p-4 text-white flex-shrink-0 flex flex-row md:flex-col overflow-x-auto md:overflow-x-visible gap-2 md:gap-1.5 md:space-y-1`}>
+          <div className={`hidden md:flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-between'} mb-4 px-2`}>
             {!sidebarCollapsed && <span className="text-xs uppercase font-extrabold tracking-wider text-slate-350">Navigation</span>}
             <button
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -510,72 +511,64 @@ export default function AdminDashboard() {
 
           <button
             onClick={() => setActiveTab("analytics")}
-            className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3 px-4'} py-3 rounded-xl text-sm font-medium transition cursor-pointer ${
+            className={`w-auto md:w-full flex items-center ${sidebarCollapsed ? 'md:justify-center' : 'gap-3 px-4'} py-2.5 md:py-3 px-3 md:px-4 rounded-xl text-sm font-medium transition cursor-pointer flex-shrink-0 ${
               activeTab === "analytics" ? "bg-[#FFD100] text-[#1B2A6B] font-bold shadow-sm" : "text-slate-200 hover:bg-[#152052] hover:text-white"
             }`}
             title="Overview & Analytics"
           >
             <BarChart3 className="w-4.5 h-4.5 flex-shrink-0" />
-            {!sidebarCollapsed && <span>Overview & Analytics</span>}
+            <span className={sidebarCollapsed ? "inline md:hidden" : ""}>Overview & Analytics</span>
           </button>
 
           <button
             onClick={() => setActiveTab("classes")}
-            className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3 px-4'} py-3 rounded-xl text-sm font-medium transition cursor-pointer ${
+            className={`w-auto md:w-full flex items-center ${sidebarCollapsed ? 'md:justify-center' : 'gap-3 px-4'} py-2.5 md:py-3 px-3 md:px-4 rounded-xl text-sm font-medium transition cursor-pointer flex-shrink-0 ${
               activeTab === "classes" ? "bg-[#FFD100] text-[#1B2A6B] font-bold shadow-sm" : "text-slate-200 hover:bg-[#152052] hover:text-white"
             }`}
             title="Classes & Subjects"
           >
             <Layers className="w-4.5 h-4.5 flex-shrink-0" />
-            {!sidebarCollapsed && <span>Classes & Subjects</span>}
+            <span className={sidebarCollapsed ? "inline md:hidden" : ""}>Classes & Subjects</span>
           </button>
 
           <button
             onClick={() => setActiveTab("teachers")}
-            className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3 px-4'} py-3 rounded-xl text-sm font-medium transition cursor-pointer ${
+            className={`w-auto md:w-full flex items-center ${sidebarCollapsed ? 'md:justify-center' : 'gap-3 px-4'} py-2.5 md:py-3 px-3 md:px-4 rounded-xl text-sm font-medium transition cursor-pointer flex-shrink-0 ${
               activeTab === "teachers" ? "bg-[#FFD100] text-[#1B2A6B] font-bold shadow-sm" : "text-slate-200 hover:bg-[#152052] hover:text-white"
             }`}
             title="Teachers & Students"
           >
             <Users className="w-4.5 h-4.5 flex-shrink-0" />
-            {!sidebarCollapsed && <span>Teachers & Students</span>}
+            <span className={sidebarCollapsed ? "inline md:hidden" : ""}>Teachers & Students</span>
           </button>
 
           <button
             onClick={() => setActiveTab("exams")}
-            className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3 px-4'} py-3 rounded-xl text-sm font-medium transition cursor-pointer ${
+            className={`w-auto md:w-full flex items-center ${sidebarCollapsed ? 'md:justify-center' : 'gap-3 px-4'} py-2.5 md:py-3 px-3 md:px-4 rounded-xl text-sm font-medium transition cursor-pointer flex-shrink-0 ${
               activeTab === "exams" ? "bg-[#FFD100] text-[#1B2A6B] font-bold shadow-sm" : "text-slate-200 hover:bg-[#152052] hover:text-white"
             }`}
             title="Exams Scheduler"
           >
             <Calendar className="w-4.5 h-4.5 flex-shrink-0" />
-            {!sidebarCollapsed && <span>Exams Scheduler</span>}
+            <span className={sidebarCollapsed ? "inline md:hidden" : ""}>Exams Scheduler</span>
           </button>
 
           <button
             onClick={() => setActiveTab("reports")}
-            className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3 px-4'} py-3 rounded-xl text-sm font-medium transition cursor-pointer ${
+            className={`w-auto md:w-full flex items-center ${sidebarCollapsed ? 'md:justify-center' : 'gap-3 px-4'} py-2.5 md:py-3 px-3 md:px-4 rounded-xl text-sm font-medium transition cursor-pointer flex-shrink-0 ${
               activeTab === "reports" ? "bg-[#FFD100] text-[#1B2A6B] font-bold shadow-sm" : "text-slate-200 hover:bg-[#152052] hover:text-white"
             }`}
             title="Flagged Reports"
           >
-            <Flag className="w-4.5 h-4.5 flex-shrink-0" />
-            {sidebarCollapsed ? (
-              analytics?.counts?.reports > 0 && (
-                <span className="absolute top-2 right-2 bg-red-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full shadow-sm">
+            <div className="flex items-center gap-3 w-full">
+              <Flag className="w-4.5 h-4.5 flex-shrink-0" />
+              <span className={sidebarCollapsed ? "inline md:hidden" : ""}>Flagged Reports</span>
+              {analytics?.counts?.reports > 0 && (
+                <span className={`bg-red-500 text-white text-xxs px-2 py-0.5 rounded-full font-bold shadow-sm ${sidebarCollapsed ? 'md:hidden' : ''}`}>
                   {analytics.counts.reports}
                 </span>
-              )
-            ) : (
-              <div className="flex-1 flex items-center justify-between">
-                <span>Flagged Reports</span>
-                {analytics?.counts?.reports > 0 && (
-                  <span className="bg-red-500 text-white text-xxs px-2 py-0.5 rounded-full font-bold shadow-sm">
-                    {analytics.counts.reports}
-                  </span>
-                )}
-              </div>
-            )}
+              )}
+            </div>
           </button>
         </aside>
 

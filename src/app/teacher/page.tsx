@@ -536,10 +536,11 @@ export default function TeacherDashboard() {
           </div>
           <button
             onClick={handleLogout}
-            className="p-2.5 bg-[#152052] hover:bg-[#FFD100] hover:text-[#1B2A6B] text-white border border-[#1b2a6b]/20 rounded-xl transition cursor-pointer"
+            className="p-2.5 bg-[#152052] hover:bg-[#FFD100] hover:text-[#1B2A6B] text-white border border-[#1b2a6b]/20 rounded-xl transition cursor-pointer flex items-center gap-2"
             title="Log Out"
           >
             <LogOut className="w-4.5 h-4.5" />
+            <span className="hidden sm:inline text-xs font-semibold">Log out</span>
           </button>
         </div>
       </header>
@@ -547,8 +548,8 @@ export default function TeacherDashboard() {
       {/* Main Body Layout */}
       <div className="flex-1 flex flex-col md:flex-row">
         {/* Sidebar tabs */}
-        <aside className={`transition-all duration-300 ${sidebarCollapsed ? 'w-20' : 'w-full md:w-64'} bg-[#1B2A6B] md:border-r border-[#152052] p-4 space-y-1 text-white flex-shrink-0`}>
-          <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-between'} mb-4 px-2`}>
+        <aside className={`transition-all duration-300 ${sidebarCollapsed ? 'md:w-20' : 'md:w-64'} w-full bg-[#1B2A6B] md:border-r border-[#152052] p-3 md:p-4 text-white flex-shrink-0 flex flex-row md:flex-col overflow-x-auto md:overflow-x-visible gap-2 md:gap-1.5 md:space-y-1`}>
+          <div className={`hidden md:flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-between'} mb-4 px-2`}>
             {!sidebarCollapsed && <span className="text-xs uppercase font-extrabold tracking-wider text-slate-350">Navigation</span>}
             <button
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -561,57 +562,57 @@ export default function TeacherDashboard() {
 
           <button
             onClick={() => setActiveTab("roster")}
-            className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3 px-4'} py-3 rounded-xl text-sm font-medium transition cursor-pointer ${
+            className={`w-auto md:w-full flex items-center ${sidebarCollapsed ? 'md:justify-center' : 'gap-3 px-4'} py-2.5 md:py-3 px-3 md:px-4 rounded-xl text-sm font-medium transition cursor-pointer flex-shrink-0 ${
               activeTab === "roster" ? "bg-[#FFD100] text-[#1B2A6B] font-bold shadow-sm" : "text-slate-200 hover:bg-[#152052] hover:text-white"
             }`}
             title="Class Roster"
           >
             <Users className="w-4.5 h-4.5 flex-shrink-0" />
-            {!sidebarCollapsed && <span>Class Roster ({students.length})</span>}
+            <span className={sidebarCollapsed ? "inline md:hidden" : ""}>Class Roster ({students.length})</span>
           </button>
 
           <button
             onClick={() => setActiveTab("questions")}
-            className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3 px-4'} py-3 rounded-xl text-sm font-medium transition cursor-pointer ${
+            className={`w-auto md:w-full flex items-center ${sidebarCollapsed ? 'md:justify-center' : 'gap-3 px-4'} py-2.5 md:py-3 px-3 md:px-4 rounded-xl text-sm font-medium transition cursor-pointer flex-shrink-0 ${
               activeTab === "questions" ? "bg-[#FFD100] text-[#1B2A6B] font-bold shadow-sm" : "text-slate-200 hover:bg-[#152052] hover:text-white"
             }`}
             title="Questions Bank"
           >
             <BookOpen className="w-4.5 h-4.5 flex-shrink-0" />
-            {!sidebarCollapsed && <span>Questions Bank ({questions.length})</span>}
+            <span className={sidebarCollapsed ? "inline md:hidden" : ""}>Questions Bank ({questions.length})</span>
           </button>
 
           <button
             onClick={() => setActiveTab("exams")}
-            className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3 px-4'} py-3 rounded-xl text-sm font-medium transition cursor-pointer ${
+            className={`w-auto md:w-full flex items-center ${sidebarCollapsed ? 'md:justify-center' : 'gap-3 px-4'} py-2.5 md:py-3 px-3 md:px-4 rounded-xl text-sm font-medium transition cursor-pointer flex-shrink-0 ${
               activeTab === "exams" ? "bg-[#FFD100] text-[#1B2A6B] font-bold shadow-sm" : "text-slate-200 hover:bg-[#152052] hover:text-white"
             }`}
             title="Scheduled Tests"
           >
             <Calendar className="w-4.5 h-4.5 flex-shrink-0" />
-            {!sidebarCollapsed && <span>Scheduled Tests ({exams.length})</span>}
+            <span className={sidebarCollapsed ? "inline md:hidden" : ""}>Scheduled Tests ({exams.length})</span>
           </button>
 
           <button
             onClick={() => setActiveTab("subjects")}
-            className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3 px-4'} py-3 rounded-xl text-sm font-medium transition cursor-pointer ${
+            className={`w-auto md:w-full flex items-center ${sidebarCollapsed ? 'md:justify-center' : 'gap-3 px-4'} py-2.5 md:py-3 px-3 md:px-4 rounded-xl text-sm font-medium transition cursor-pointer flex-shrink-0 ${
               activeTab === "subjects" ? "bg-[#FFD100] text-[#1B2A6B] font-bold shadow-sm" : "text-slate-200 hover:bg-[#152052] hover:text-white"
             }`}
             title="Class Subjects"
           >
             <BookOpen className="w-4.5 h-4.5 flex-shrink-0" />
-            {!sidebarCollapsed && <span>Class Subjects ({subjects.length})</span>}
+            <span className={sidebarCollapsed ? "inline md:hidden" : ""}>Class Subjects ({subjects.length})</span>
           </button>
 
           <button
             onClick={() => setActiveTab("results")}
-            className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3 px-4'} py-3 rounded-xl text-sm font-medium transition cursor-pointer ${
+            className={`w-auto md:w-full flex items-center ${sidebarCollapsed ? 'md:justify-center' : 'gap-3 px-4'} py-2.5 md:py-3 px-3 md:px-4 rounded-xl text-sm font-medium transition cursor-pointer flex-shrink-0 ${
               activeTab === "results" ? "bg-[#FFD100] text-[#1B2A6B] font-bold shadow-sm" : "text-slate-200 hover:bg-[#152052] hover:text-white"
             }`}
             title="Class Performance"
           >
             <BarChart3 className="w-4.5 h-4.5 flex-shrink-0" />
-            {!sidebarCollapsed && <span>Class Performance</span>}
+            <span className={sidebarCollapsed ? "inline md:hidden" : ""}>Class Performance</span>
           </button>
         </aside>
 
