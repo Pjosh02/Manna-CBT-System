@@ -81,6 +81,8 @@ model Question {
   status        String           @default("PUBLISHED") // "DRAFT" | "PUBLISHED"
   difficulty    String           @default("MEDIUM") // "EASY" | "MEDIUM" | "HARD"
   tags          String?
+  questionType  String           @default("MCQ") // "MCQ" | "THEORY"
+  sequenceNumber Int             @default(0)
   createdAt     DateTime         @default(now())
 
   // Relations

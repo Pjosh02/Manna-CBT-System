@@ -69,17 +69,28 @@ export async function POST(request: NextRequest) {
           status,
           difficulty,
           tags,
+          questionType,
+          sequenceNumber,
         } = row;
 
-        if (!subjectId || !questionText || !optionA || !optionB || !optionC || !optionD || !correctOption) {
+        const isTheory = questionType === "THEORY";
+
+        if (!subjectId || !questionText) {
           errors.push(`Missing fields for question: ${questionText?.substring(0, 20) || "unknown"}`);
           continue;
         }
 
-        const validOptions = ["A", "B", "C", "D"];
-        if (!validOptions.includes(correctOption.toString().toUpperCase())) {
-          errors.push(`Invalid correct option "${correctOption}" for question: ${questionText?.substring(0, 20)}`);
+        if (!isTheory && (!optionA || !optionB || !optionC || !optionD || !correctOption)) {
+          errors.push(`Missing MCQ options or correct option for question: ${questionText?.substring(0, 20) || "unknown"}`);
           continue;
+        }
+
+        if (!isTheory) {
+          const validOptions = ["A", "B", "C", "D"];
+          if (!validOptions.includes(correctOption.toString().toUpperCase())) {
+            errors.push(`Invalid correct option "${correctOption}" for question: ${questionText?.substring(0, 20)}`);
+            continue;
+          }
         }
 
         const subjectExists = await prisma.subject.findUnique({
@@ -98,16 +109,18 @@ export async function POST(request: NextRequest) {
             imageUrl: imageUrl || null,
             passageText: passageText || null,
             passageTitle: passageTitle || null,
-            optionA: optionA.toString(),
-            optionB: optionB.toString(),
-            optionC: optionC.toString(),
-            optionD: optionD.toString(),
-            correctOption: correctOption.toString().toUpperCase(),
+            optionA: isTheory ? "" : optionA.toString(),
+            optionB: isTheory ? "" : optionB.toString(),
+            optionC: isTheory ? "" : optionC.toString(),
+            optionD: isTheory ? "" : optionD.toString(),
+            correctOption: isTheory ? "A" : correctOption.toString().toUpperCase(),
             assessmentType: assessmentType || "Exam",
             points: points ? parseInt(points.toString()) : 1,
             status: status || "PUBLISHED",
             difficulty: difficulty || "MEDIUM",
             tags: tags || null,
+            questionType: questionType || "MCQ",
+            sequenceNumber: sequenceNumber ? parseInt(sequenceNumber.toString()) : 0,
           },
         });
         addedQuestions.push(question);
@@ -138,15 +151,25 @@ export async function POST(request: NextRequest) {
       status,
       difficulty,
       tags,
+      questionType,
+      sequenceNumber,
     } = body;
 
-    if (!subjectId || !questionText || !optionA || !optionB || !optionC || !optionD || !correctOption) {
+    const isTheory = questionType === "THEORY";
+
+    if (!subjectId || !questionText) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    const validOptions = ["A", "B", "C", "D"];
-    if (!validOptions.includes(correctOption.toUpperCase())) {
-      return NextResponse.json({ error: "Correct option must be A, B, C, or D" }, { status: 400 });
+    if (!isTheory && (!optionA || !optionB || !optionC || !optionD || !correctOption)) {
+      return NextResponse.json({ error: "Missing MCQ options or correct option" }, { status: 400 });
+    }
+
+    if (!isTheory) {
+      const validOptions = ["A", "B", "C", "D"];
+      if (!validOptions.includes(correctOption.toUpperCase())) {
+        return NextResponse.json({ error: "Correct option must be A, B, C, or D" }, { status: 400 });
+      }
     }
 
     const subjectExists = await prisma.subject.findUnique({
@@ -164,16 +187,18 @@ export async function POST(request: NextRequest) {
         imageUrl: imageUrl || null,
         passageText: passageText || null,
         passageTitle: passageTitle || null,
-        optionA,
-        optionB,
-        optionC,
-        optionD,
-        correctOption: correctOption.toUpperCase(),
+        optionA: isTheory ? "" : optionA,
+        optionB: isTheory ? "" : optionB,
+        optionC: isTheory ? "" : optionC,
+        optionD: isTheory ? "" : optionD,
+        correctOption: isTheory ? "A" : correctOption.toUpperCase(),
         assessmentType: assessmentType || "Exam",
         points: points ? parseInt(points.toString()) : 1,
         status: status || "PUBLISHED",
         difficulty: difficulty || "MEDIUM",
         tags: tags || null,
+        questionType: questionType || "MCQ",
+        sequenceNumber: sequenceNumber ? parseInt(sequenceNumber.toString()) : 0,
       },
     });
 
@@ -209,6 +234,8 @@ export async function PATCH(request: NextRequest) {
       status,
       difficulty,
       tags,
+      questionType,
+      sequenceNumber,
     } = await request.json();
 
     if (!id) {
@@ -221,7 +248,9 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Question not found or unauthorized" }, { status: 404 });
     }
 
-    if (correctOption) {
+    const isTheory = (questionType !== undefined ? questionType : question.questionType) === "THEORY";
+
+    if (correctOption && !isTheory) {
       const validOptions = ["A", "B", "C", "D"];
       if (!validOptions.includes(correctOption.toUpperCase())) {
         return NextResponse.json({ error: "Correct option must be A, B, C, or D" }, { status: 400 });
@@ -248,16 +277,18 @@ export async function PATCH(request: NextRequest) {
         imageUrl,
         passageText,
         passageTitle,
-        optionA,
-        optionB,
-        optionC,
-        optionD,
-        correctOption: correctOption ? correctOption.toUpperCase() : undefined,
+        optionA: isTheory ? "" : (optionA !== undefined ? optionA : undefined),
+        optionB: isTheory ? "" : (optionB !== undefined ? optionB : undefined),
+        optionC: isTheory ? "" : (optionC !== undefined ? optionC : undefined),
+        optionD: isTheory ? "" : (optionD !== undefined ? optionD : undefined),
+        correctOption: isTheory ? "A" : (correctOption ? correctOption.toUpperCase() : undefined),
         assessmentType: assessmentType !== undefined ? assessmentType : undefined,
         points: points !== undefined ? parseInt(points.toString()) : undefined,
         status: status !== undefined ? status : undefined,
         difficulty: difficulty !== undefined ? difficulty : undefined,
         tags: tags !== undefined ? tags : undefined,
+        questionType: questionType !== undefined ? questionType : undefined,
+        sequenceNumber: sequenceNumber !== undefined ? parseInt(sequenceNumber.toString()) : undefined,
       },
     });
 

@@ -21,6 +21,7 @@ import {
   Loader2,
   X,
   Clock,
+  FileText,
 } from "lucide-react";
 import MathRenderer from "@/components/MathRenderer";
 
@@ -710,42 +711,58 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
                 </div>
 
                 {/* Answers A–F options vertical list */}
-                <div className="space-y-3.5 pl-13">
-                  {shuffleOptions(activeQuestion, studentId).map((opt, index) => {
-                    const isSelected = activeAttempt.selectedOption === opt.key;
-                    const visualLabel = ["A", "B", "C", "D", "E", "F"][index];
-                    return (
-                      <div
-                        key={opt.key}
-                        onClick={() => saveAttempt(activeQuestion.id, activeSubject.subjectId, opt.key, activeAttempt.isFlagged)}
-                        className={`p-4 rounded-xl border flex items-center gap-3.5 cursor-pointer transition select-none shadow-sm ${
-                          isSelected
-                            ? "bg-blue-50 border-2 border-[#1B2A6B] text-[#1B2A6B] font-bold"
-                            : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300"
-                        }`}
-                      >
-                        {/* Circular radio button */}
+                {activeQuestion?.questionType === "THEORY" ? (
+                  <div className="pl-13 py-6">
+                    <div className="bg-blue-50/50 border border-[#1B2A6B]/25 text-[#1B2A6B] rounded-2xl p-6 flex items-start gap-4 max-w-2xl shadow-sm">
+                      <div className="p-3 bg-white rounded-xl border border-[#1B2A6B]/15 shadow-sm text-slate-800 flex items-center justify-center flex-shrink-0">
+                        <FileText className="w-6 h-6 text-[#1B2A6B]" />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-sm font-extrabold tracking-wide uppercase text-slate-700">Theory Question</p>
+                        <p className="text-xs text-slate-500 leading-relaxed font-medium">
+                          Please write your complete solution, steps, and final answers in your paper answer booklet. No response is collected on the computer.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3.5 pl-13">
+                    {shuffleOptions(activeQuestion, studentId).map((opt, index) => {
+                      const isSelected = activeAttempt.selectedOption === opt.key;
+                      const visualLabel = ["A", "B", "C", "D", "E", "F"][index];
+                      return (
                         <div
-                          className={`w-5 h-5 rounded-full border flex items-center justify-center flex-shrink-0 transition ${
-                            isSelected ? "border-[#1B2A6B] bg-[#1B2A6B]" : "border-slate-350 bg-white"
+                          key={opt.key}
+                          onClick={() => saveAttempt(activeQuestion.id, activeSubject.subjectId, opt.key, activeAttempt.isFlagged)}
+                          className={`p-4 rounded-xl border flex items-center gap-3.5 cursor-pointer transition select-none shadow-sm ${
+                            isSelected
+                              ? "bg-blue-50 border-2 border-[#1B2A6B] text-[#1B2A6B] font-bold"
+                              : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300"
                           }`}
                         >
-                          <div className={`w-2 h-2 rounded-full bg-[#FFD100] ${isSelected ? "block" : "hidden"}`} />
+                          {/* Circular radio button */}
+                          <div
+                            className={`w-5 h-5 rounded-full border flex items-center justify-center flex-shrink-0 transition ${
+                              isSelected ? "border-[#1B2A6B] bg-[#1B2A6B]" : "border-slate-350 bg-white"
+                            }`}
+                          >
+                            <div className={`w-2 h-2 rounded-full bg-[#FFD100] ${isSelected ? "block" : "hidden"}`} />
+                          </div>
+
+                          {/* Letter A-F (Visual label) */}
+                          <span className={`font-extrabold w-4 ${isSelected ? 'text-[#1B2A6B]' : 'text-slate-455'}`}>{visualLabel}.</span>
+
+                          {/* Answer text */}
+                          {opt.text ? (
+                            <MathRenderer text={opt.text} inline={true} isHtml={true} className={`text-sm ${isSelected ? 'text-[#1B2A6B] font-semibold' : 'text-slate-800'}`} />
+                          ) : (
+                            <span className="text-slate-400 italic">Option content not loaded</span>
+                          )}
                         </div>
-
-                        {/* Letter A-F (Visual label) */}
-                        <span className={`font-extrabold w-4 ${isSelected ? 'text-[#1B2A6B]' : 'text-slate-455'}`}>{visualLabel}.</span>
-
-                        {/* Answer text */}
-                        {opt.text ? (
-                          <MathRenderer text={opt.text} inline={true} isHtml={true} className={`text-sm ${isSelected ? 'text-[#1B2A6B] font-semibold' : 'text-slate-800'}`} />
-                        ) : (
-                          <span className="text-slate-400 italic">Option content not loaded</span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
 

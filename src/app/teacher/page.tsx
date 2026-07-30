@@ -783,15 +783,26 @@ export default function TeacherDashboard() {
                             <span className="text-xs text-slate-500 font-medium">
                               ({sub._count?.questions || 0} Q)
                             </span>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                router.push(`/teacher/questions/new?subjectId=${sub.id}&classId=${selectedClassId}`);
-                              }}
-                              className="flex items-center gap-1 bg-[#1B2A6B] hover:bg-[#152052] text-white text-xs px-3 py-1.5 rounded-lg font-semibold transition cursor-pointer"
-                            >
-                              <Plus className="w-3.5 h-3.5" /> Add Question
-                            </button>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  router.push(`/teacher/questions/new?subjectId=${sub.id}&classId=${selectedClassId}&type=mcq`);
+                                }}
+                                className="flex items-center gap-1 bg-[#1B2A6B] hover:bg-[#152052] text-white text-xs px-3 py-1.5 rounded-lg font-semibold transition cursor-pointer"
+                              >
+                                <Plus className="w-3 h-3" /> Add MCQ
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  router.push(`/teacher/questions/new?subjectId=${sub.id}&classId=${selectedClassId}&type=theory`);
+                                }}
+                                className="flex items-center gap-1 bg-[#FFD100] hover:bg-[#FFD100]/90 text-[#1B2A6B] text-xs px-3 py-1.5 rounded-lg font-bold transition cursor-pointer"
+                              >
+                                <Plus className="w-3 h-3" /> Add Theory Questions
+                              </button>
+                            </div>
                           </div>
                         </div>
                       );
@@ -833,6 +844,13 @@ export default function TeacherDashboard() {
                           </span>
                           <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-[#FFD100] text-[#1B2A6B]">
                             {q.assessmentType || "Exam"}
+                          </span>
+                          <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${
+                            q.questionType === "THEORY"
+                              ? "bg-purple-50 border-purple-250 text-purple-800"
+                              : "bg-blue-50 border-blue-250 text-blue-800"
+                          }`}>
+                            {q.questionType || "MCQ"}
                           </span>
                           <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200">
                             {q.points || 1} pt(s)
@@ -898,34 +916,36 @@ export default function TeacherDashboard() {
                       )}
 
                       {/* Options checklist */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-2">
-                        {[
-                          { key: "A", label: q.optionA },
-                          { key: "B", label: q.optionB },
-                          { key: "C", label: q.optionC },
-                          { key: "D", label: q.optionD },
-                          ...(q.optionE ? [{ key: "E", label: q.optionE }] : []),
-                          ...(q.optionF ? [{ key: "F", label: q.optionF }] : []),
-                        ].map((opt) => (
-                          <div
-                            key={opt.key}
-                            className={`p-2.5 rounded-lg border text-xs flex items-center gap-2 ${
-                              q.correctOption === opt.key
-                                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 font-bold"
-                                : "bg-zinc-950/40 border-zinc-850 text-slate-500"
-                            }`}
-                          >
-                            <span className="w-5 h-5 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center flex-shrink-0 text-[10px] font-bold">
-                              {opt.key}
-                            </span>
-                            {opt.label ? (
-                              <MathRenderer text={opt.label} inline={true} isHtml={true} className={q.correctOption === opt.key ? "font-bold text-emerald-400" : "text-slate-500"} />
-                            ) : (
-                              <span className="text-slate-400 italic">Option content not provided</span>
-                            )}
-                          </div>
-                        ))}
-                      </div>
+                      {q.questionType !== "THEORY" && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-2">
+                          {[
+                            { key: "A", label: q.optionA },
+                            { key: "B", label: q.optionB },
+                            { key: "C", label: q.optionC },
+                            { key: "D", label: q.optionD },
+                            ...(q.optionE ? [{ key: "E", label: q.optionE }] : []),
+                            ...(q.optionF ? [{ key: "F", label: q.optionF }] : []),
+                          ].map((opt) => (
+                            <div
+                              key={opt.key}
+                              className={`p-2.5 rounded-lg border text-xs flex items-center gap-2 ${
+                                q.correctOption === opt.key
+                                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 font-bold"
+                                  : "bg-zinc-950/40 border-zinc-850 text-slate-500"
+                              }`}
+                            >
+                              <span className="w-5 h-5 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center flex-shrink-0 text-[10px] font-bold">
+                                {opt.key}
+                              </span>
+                              {opt.label ? (
+                                <MathRenderer text={opt.label} inline={true} isHtml={true} className={q.correctOption === opt.key ? "font-bold text-emerald-400" : "text-slate-500"} />
+                              ) : (
+                                <span className="text-slate-400 italic">Option content not provided</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))
                 )}

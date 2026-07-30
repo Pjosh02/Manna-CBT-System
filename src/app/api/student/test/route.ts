@@ -140,6 +140,7 @@ export async function GET(request: NextRequest) {
           optionD: q.optionD,
           optionE: q.optionE,
           optionF: q.optionF,
+          questionType: q.questionType,
         })),
       });
     }

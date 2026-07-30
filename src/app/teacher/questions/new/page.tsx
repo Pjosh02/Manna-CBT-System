@@ -72,6 +72,7 @@ function NewQuestionForm() {
     optionD: "",
     correctOption: "A",
     points: 1,
+    questionType: "MCQ",
     difficulty: "MEDIUM",
     tags: "",
   });
@@ -99,13 +100,14 @@ function NewQuestionForm() {
         const subjectsData = await subjectsRes.json();
         setSubjects(subjectsData.subjects || []);
 
-        // Prepopulate default subject if available
+        // Prepopulate default subject & questionType if available
         const prepopulatedSubjectId = searchParams.get("subjectId");
-        if (prepopulatedSubjectId) {
-          setForm((prev) => ({ ...prev, subjectId: prepopulatedSubjectId }));
-        } else {
-          setForm((prev) => ({ ...prev, subjectId: "" }));
-        }
+        const typeParam = searchParams.get("type") || "mcq";
+        setForm((prev) => ({
+          ...prev,
+          subjectId: prepopulatedSubjectId || "",
+          questionType: typeParam.toUpperCase(),
+        }));
 
         // If editing, fetch the specific question details
         if (editId) {
@@ -129,6 +131,7 @@ function NewQuestionForm() {
               points: questionToEdit.points || 1,
               difficulty: questionToEdit.difficulty || "MEDIUM",
               tags: questionToEdit.tags || "",
+              questionType: questionToEdit.questionType || "MCQ",
             });
           }
         }
@@ -256,11 +259,15 @@ function NewQuestionForm() {
 
     if (!form.subjectId) tempErrors.subjectId = "Please select a subject before saving";
     if (!form.questionText.trim()) tempErrors.questionText = "Question text cannot be empty";
-    if (!form.optionA.trim()) tempErrors.optionA = "Option A is required";
-    if (!form.optionB.trim()) tempErrors.optionB = "Option B is required";
-    if (!form.optionC.trim()) tempErrors.optionC = "Option C is required";
-    if (!form.optionD.trim()) tempErrors.optionD = "Option D is required";
-    if (!form.correctOption) tempErrors.correctOption = "Please select a correct option";
+    
+    if (form.questionType !== "THEORY") {
+      if (!form.optionA.trim()) tempErrors.optionA = "Option A is required";
+      if (!form.optionB.trim()) tempErrors.optionB = "Option B is required";
+      if (!form.optionC.trim()) tempErrors.optionC = "Option C is required";
+      if (!form.optionD.trim()) tempErrors.optionD = "Option D is required";
+      if (!form.correctOption) tempErrors.correctOption = "Please select a correct option";
+    }
+
     if (form.points <= 0) tempErrors.points = "Points must be at least 1";
 
     setErrors(tempErrors);
@@ -284,6 +291,7 @@ function NewQuestionForm() {
     setErrorMsg("");
     setSuccessMsg("");
 
+    const isTheory = form.questionType === "THEORY";
     const payload = {
       id: editId || undefined,
       subjectId: form.subjectId,
@@ -291,16 +299,17 @@ function NewQuestionForm() {
       imageUrl: form.imageUrl || null,
       passageTitle: form.hasPassage && form.passageTitle.trim() ? form.passageTitle : null,
       passageText: form.hasPassage && form.passageText.trim() ? form.passageText : null,
-      optionA: form.optionA,
-      optionB: form.optionB,
-      optionC: form.optionC,
-      optionD: form.optionD,
-      correctOption: form.correctOption,
+      optionA: isTheory ? "" : form.optionA,
+      optionB: isTheory ? "" : form.optionB,
+      optionC: isTheory ? "" : form.optionC,
+      optionD: isTheory ? "" : form.optionD,
+      correctOption: isTheory ? "A" : form.correctOption,
       assessmentType: form.assessmentType,
       points: form.points,
       status: statusType,
       difficulty: form.difficulty,
       tags: form.tags,
+      questionType: form.questionType || "MCQ",
     };
 
     try {
@@ -415,36 +424,38 @@ function NewQuestionForm() {
         )}
 
         {/* Options list */}
-        <div className="space-y-2 mt-4 pt-4 border-t border-slate-200/60">
-          {[
-            { key: "A", val: q.optionA },
-            { key: "B", val: q.optionB },
-            { key: "C", val: q.optionC },
-            { key: "D", val: q.optionD },
-          ].map((item) => (
-            <div
-              key={item.key}
-              className={`flex items-center gap-3 p-3 rounded-lg border text-xs font-medium transition ${
-                q.correctOption === item.key
-                  ? "bg-[#FFD100]/10 border-[#FFD100] text-[#1B2A6B] font-bold"
-                  : "bg-white border-slate-200 text-slate-600"
-              }`}
-            >
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold border ${
-                q.correctOption === item.key
-                  ? "bg-[#1B2A6B] text-white border-[#1B2A6B]"
-                  : "bg-slate-50 text-slate-500 border-slate-200"
-              }`}>
-                {item.key}
+        {q.questionType !== "THEORY" && (
+          <div className="space-y-2 mt-4 pt-4 border-t border-slate-200/60">
+            {[
+              { key: "A", val: q.optionA },
+              { key: "B", val: q.optionB },
+              { key: "C", val: q.optionC },
+              { key: "D", val: q.optionD },
+            ].map((item) => (
+              <div
+                key={item.key}
+                className={`flex items-center gap-3 p-3 rounded-lg border text-xs font-medium transition ${
+                  q.correctOption === item.key
+                    ? "bg-[#FFD100]/10 border-[#FFD100] text-[#1B2A6B] font-bold"
+                    : "bg-white border-slate-200 text-slate-600"
+                }`}
+              >
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold border ${
+                  q.correctOption === item.key
+                    ? "bg-[#1B2A6B] text-white border-[#1B2A6B]"
+                    : "bg-slate-50 text-slate-500 border-slate-200"
+                }`}>
+                  {item.key}
+                </div>
+                {item.val ? (
+                  <MathRenderer text={item.val} inline={true} isHtml={true} className={q.correctOption === item.key ? "font-bold text-[#1B2A6B]" : "text-slate-600"} />
+                ) : (
+                  <span className="text-slate-400 italic">Option content not provided</span>
+                )}
               </div>
-              {item.val ? (
-                <MathRenderer text={item.val} inline={true} isHtml={true} className={q.correctOption === item.key ? "font-bold text-[#1B2A6B]" : "text-slate-600"} />
-              ) : (
-                <span className="text-slate-400 italic">Option content not provided</span>
-              )}
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     );
   };
@@ -482,9 +493,13 @@ function NewQuestionForm() {
               <div className="flex items-center gap-2 text-xs text-[#FFD100]/90 font-semibold uppercase tracking-wider">
                 <span>Question Bank</span>
                 <span>&gt;</span>
-                <span className="text-white">Add New Question</span>
+                <span className="text-white">
+                  {form.questionType === "THEORY" ? "Add Theory Question" : "Add MCQ"}
+                </span>
               </div>
-              <h1 className="text-lg font-bold mt-0.5">Author New Question</h1>
+              <h1 className="text-lg font-bold mt-0.5">
+                {form.questionType === "THEORY" ? "Author Theory Question" : "Author MCQ"}
+              </h1>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -557,10 +572,14 @@ function NewQuestionForm() {
             <div className="flex items-center gap-2 text-xs text-[#FFD100]/90 font-semibold uppercase tracking-wider">
               <span>Question Bank</span>
               <span>&gt;</span>
-              <span className="text-white">{editId ? "Edit Question" : "Add New Question"}</span>
+              <span className="text-white">
+                {editId ? "Edit Question" : form.questionType === "THEORY" ? "Add Theory Question" : "Add MCQ"}
+              </span>
             </div>
             <h1 className="text-lg font-bold mt-0.5">
-              {editId ? "Modify Examination Question" : "Author New Question"}
+              {editId 
+                ? `Modify ${form.questionType === "THEORY" ? "Theory" : "Multiple-Choice"} Question` 
+                : `Author New ${form.questionType === "THEORY" ? "Theory" : "Multiple-Choice"} Question`}
             </h1>
           </div>
         </div>
@@ -1007,100 +1026,104 @@ function NewQuestionForm() {
             </div>
 
             {/* MULTIPLE CHOICE OPTIONS */}
-            <div className="space-y-4">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">Multiple Choice Options</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 mb-1">Option A</label>
-                  <input
-                    type="text"
-                    id="optionA"
-                    required
-                    value={form.optionA}
-                    onFocus={() => setActiveInputId("optionA")}
-                    onChange={(e) => {
-                      setForm({ ...form, optionA: e.target.value });
-                      if (errors.optionA) setErrors({ ...errors, optionA: "" });
-                    }}
-                    className={`w-full bg-slate-50 border ${errors.optionA ? 'border-red-500 ring-2 ring-red-500/10' : 'border-slate-200 focus:border-[#1B2A6B]'} focus:ring-2 focus:ring-[#1B2A6B]/15 text-slate-800 text-sm rounded-lg p-2.5 outline-none transition font-medium`}
-                  />
-                  {errors.optionA && <p className="text-xs text-red-600 mt-1 font-medium">{errors.optionA}</p>}
+            {form.questionType !== "THEORY" && (
+              <>
+                <div className="space-y-4">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">Multiple Choice Options</h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 mb-1">Option A</label>
+                      <input
+                        type="text"
+                        id="optionA"
+                        required
+                        value={form.optionA}
+                        onFocus={() => setActiveInputId("optionA")}
+                        onChange={(e) => {
+                          setForm({ ...form, optionA: e.target.value });
+                          if (errors.optionA) setErrors({ ...errors, optionA: "" });
+                        }}
+                        className={`w-full bg-slate-50 border ${errors.optionA ? 'border-red-500 ring-2 ring-red-500/10' : 'border-slate-200 focus:border-[#1B2A6B]'} focus:ring-2 focus:ring-[#1B2A6B]/15 text-slate-800 text-sm rounded-lg p-2.5 outline-none transition font-medium`}
+                      />
+                      {errors.optionA && <p className="text-xs text-red-600 mt-1 font-medium">{errors.optionA}</p>}
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 mb-1">Option B</label>
+                      <input
+                        type="text"
+                        id="optionB"
+                        required
+                        value={form.optionB}
+                        onFocus={() => setActiveInputId("optionB")}
+                        onChange={(e) => {
+                          setForm({ ...form, optionB: e.target.value });
+                          if (errors.optionB) setErrors({ ...errors, optionB: "" });
+                        }}
+                        className={`w-full bg-slate-50 border ${errors.optionB ? 'border-red-500 ring-2 ring-red-500/10' : 'border-slate-200 focus:border-[#1B2A6B]'} focus:ring-2 focus:ring-[#1B2A6B]/15 text-slate-800 text-sm rounded-lg p-2.5 outline-none transition font-medium`}
+                      />
+                      {errors.optionB && <p className="text-xs text-red-600 mt-1 font-medium">{errors.optionB}</p>}
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 mb-1">Option C</label>
+                      <input
+                        type="text"
+                        id="optionC"
+                        required
+                        value={form.optionC}
+                        onFocus={() => setActiveInputId("optionC")}
+                        onChange={(e) => {
+                          setForm({ ...form, optionC: e.target.value });
+                          if (errors.optionC) setErrors({ ...errors, optionC: "" });
+                        }}
+                        className={`w-full bg-slate-50 border ${errors.optionC ? 'border-red-500 ring-2 ring-red-500/10' : 'border-slate-200 focus:border-[#1B2A6B]'} focus:ring-2 focus:ring-[#1B2A6B]/15 text-slate-800 text-sm rounded-lg p-2.5 outline-none transition font-medium`}
+                      />
+                      {errors.optionC && <p className="text-xs text-red-600 mt-1 font-medium">{errors.optionC}</p>}
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 mb-1">Option D</label>
+                      <input
+                        type="text"
+                        id="optionD"
+                        required
+                        value={form.optionD}
+                        onFocus={() => setActiveInputId("optionD")}
+                        onChange={(e) => {
+                          setForm({ ...form, optionD: e.target.value });
+                          if (errors.optionD) setErrors({ ...errors, optionD: "" });
+                        }}
+                        className={`w-full bg-slate-50 border ${errors.optionD ? 'border-red-500 ring-2 ring-red-500/10' : 'border-slate-200 focus:border-[#1B2A6B]'} focus:ring-2 focus:ring-[#1B2A6B]/15 text-slate-800 text-sm rounded-lg p-2.5 outline-none transition font-medium`}
+                      />
+                      {errors.optionD && <p className="text-xs text-red-600 mt-1 font-medium">{errors.optionD}</p>}
+                    </div>
+                  </div>
                 </div>
 
+                {/* CORRECT OPTION */}
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 mb-1">Option B</label>
-                  <input
-                    type="text"
-                    id="optionB"
-                    required
-                    value={form.optionB}
-                    onFocus={() => setActiveInputId("optionB")}
-                    onChange={(e) => {
-                      setForm({ ...form, optionB: e.target.value });
-                      if (errors.optionB) setErrors({ ...errors, optionB: "" });
-                    }}
-                    className={`w-full bg-slate-50 border ${errors.optionB ? 'border-red-500 ring-2 ring-red-500/10' : 'border-slate-200 focus:border-[#1B2A6B]'} focus:ring-2 focus:ring-[#1B2A6B]/15 text-slate-800 text-sm rounded-lg p-2.5 outline-none transition font-medium`}
-                  />
-                  {errors.optionB && <p className="text-xs text-red-600 mt-1 font-medium">{errors.optionB}</p>}
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Correct Option</label>
+                  <div className="grid grid-cols-4 gap-3">
+                    {["A", "B", "C", "D"].map((opt) => (
+                      <button
+                        key={opt}
+                        type="button"
+                        onClick={() => setForm({ ...form, correctOption: opt })}
+                        className={`p-3 rounded-lg border text-sm font-bold transition flex items-center justify-center cursor-pointer ${
+                          form.correctOption === opt
+                            ? "bg-[#FFD100] border-[#FFD100] text-[#1B2A6B] shadow-sm"
+                            : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                        }`}
+                      >
+                        Option {opt}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 mb-1">Option C</label>
-                  <input
-                    type="text"
-                    id="optionC"
-                    required
-                    value={form.optionC}
-                    onFocus={() => setActiveInputId("optionC")}
-                    onChange={(e) => {
-                      setForm({ ...form, optionC: e.target.value });
-                      if (errors.optionC) setErrors({ ...errors, optionC: "" });
-                    }}
-                    className={`w-full bg-slate-50 border ${errors.optionC ? 'border-red-500 ring-2 ring-red-500/10' : 'border-slate-200 focus:border-[#1B2A6B]'} focus:ring-2 focus:ring-[#1B2A6B]/15 text-slate-800 text-sm rounded-lg p-2.5 outline-none transition font-medium`}
-                  />
-                  {errors.optionC && <p className="text-xs text-red-600 mt-1 font-medium">{errors.optionC}</p>}
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 mb-1">Option D</label>
-                  <input
-                    type="text"
-                    id="optionD"
-                    required
-                    value={form.optionD}
-                    onFocus={() => setActiveInputId("optionD")}
-                    onChange={(e) => {
-                      setForm({ ...form, optionD: e.target.value });
-                      if (errors.optionD) setErrors({ ...errors, optionD: "" });
-                    }}
-                    className={`w-full bg-slate-50 border ${errors.optionD ? 'border-red-500 ring-2 ring-red-500/10' : 'border-slate-200 focus:border-[#1B2A6B]'} focus:ring-2 focus:ring-[#1B2A6B]/15 text-slate-800 text-sm rounded-lg p-2.5 outline-none transition font-medium`}
-                  />
-                  {errors.optionD && <p className="text-xs text-red-600 mt-1 font-medium">{errors.optionD}</p>}
-                </div>
-              </div>
-            </div>
-
-            {/* CORRECT OPTION */}
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Correct Option</label>
-              <div className="grid grid-cols-4 gap-3">
-                {["A", "B", "C", "D"].map((opt) => (
-                  <button
-                    key={opt}
-                    type="button"
-                    onClick={() => setForm({ ...form, correctOption: opt })}
-                    className={`p-3 rounded-lg border text-sm font-bold transition flex items-center justify-center cursor-pointer ${
-                      form.correctOption === opt
-                        ? "bg-[#FFD100] border-[#FFD100] text-[#1B2A6B] shadow-sm"
-                        : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
-                    }`}
-                  >
-                    Option {opt}
-                  </button>
-                ))}
-              </div>
-            </div>
+              </>
+            )}
 
           </div>
 
