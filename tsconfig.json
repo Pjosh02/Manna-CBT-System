@@ -35,6 +35,7 @@
     "inspect_questions.ts",
     "inspect_questions_scoping.ts",
     "simulate_network_fetches.ts",
-    "test_questions_endpoint.ts"
+    "test_questions_endpoint.ts",
+    "prisma/seed.ts"
   ]
 }
