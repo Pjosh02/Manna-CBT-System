@@ -56,6 +56,7 @@ export async function POST(request: NextRequest) {
     // 2. Re-compile the exact questions assigned to the student
     let totalQuestionsCount = 0;
     let correctAnswersCount = 0;
+    let firstAssignedQuestionType: string | null = null;
 
     // Fetch student's attempts for this exam
     const attempts = await prisma.studentAttempt.findMany({
@@ -90,6 +91,10 @@ export async function POST(request: NextRequest) {
       const assignedQuestions = shuffled.slice(0, es.numberOfQuestions);
       totalQuestionsCount += assignedQuestions.length;
 
+      if (assignedQuestions.length > 0 && !firstAssignedQuestionType) {
+        firstAssignedQuestionType = assignedQuestions[0].assessmentType;
+      }
+
       // Grade attempts
       assignedQuestions.forEach((q) => {
         const studentSelect = attemptsMap[q.id];
@@ -120,6 +125,42 @@ export async function POST(request: NextRequest) {
         exam: true,
       },
     });
+
+    // 4. Automatically persist score to student record (CA / Exam Score)
+    let assessmentType = "Exam";
+    if (firstAssignedQuestionType === "1st CA" || firstAssignedQuestionType === "2nd CA" || firstAssignedQuestionType === "Exam") {
+      assessmentType = firstAssignedQuestionType;
+    } else {
+      const titleLower = exam.title.toLowerCase();
+      if (titleLower.includes("1st ca") || titleLower.includes("first ca")) {
+        assessmentType = "1st CA";
+      } else if (titleLower.includes("2nd ca") || titleLower.includes("second ca")) {
+        assessmentType = "2nd CA";
+      }
+    }
+
+    let caField: "firstCA" | "secondCA" | "examScore" | null = null;
+    let maxScore = 100;
+    if (assessmentType === "1st CA") {
+      caField = "firstCA";
+      maxScore = 20;
+    } else if (assessmentType === "2nd CA") {
+      caField = "secondCA";
+      maxScore = 20;
+    } else {
+      caField = "examScore";
+      maxScore = 60;
+    }
+
+    if (caField && totalQuestionsCount > 0) {
+      const scaledScore = Math.round((correctAnswersCount / totalQuestionsCount) * maxScore * 100) / 100;
+      await prisma.user.update({
+        where: { id: studentId },
+        data: {
+          [caField]: scaledScore,
+        },
+      });
+    }
 
     // Update ExamSession status to SUBMITTED
     await prisma.examSession.upsert({
