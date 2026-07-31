@@ -230,6 +230,7 @@ export async function POST(
               examId,
               studentId,
               score,
+              correctAnswers: correctAnswersCount,
               totalQuestions: totalQuestionsCount,
               timeSpent: 0,
             },

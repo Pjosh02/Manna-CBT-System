@@ -78,7 +78,7 @@ export default function StudentDashboard() {
       const newNotifications = readyResults.map((e: any) => ({
         id: e.id,
         title: "Results Ready",
-        message: `Your results for "${e.title}" are ready. Score: ${e.score}%`,
+        message: `Your results for "${e.title}" are ready. Score: ${e.correctAnswers !== null && e.correctAnswers !== undefined ? `${e.correctAnswers}/${e.totalQuestions}` : `${e.score}%`}`,
         date: new Date(e.endTime || Date.now()).toLocaleDateString(),
       }));
       setNotifications(newNotifications);
@@ -357,7 +357,7 @@ export default function StudentDashboard() {
                                 <span>Attempt Evaluated</span>
                               </div>
                               <span className="font-mono text-base font-extrabold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-250">
-                                {exam.score}%
+                                {exam.correctAnswers !== null && exam.correctAnswers !== undefined ? `${exam.correctAnswers}/${exam.totalQuestions}` : `${exam.score}%`}
                               </span>
                             </>
                           ) : (
@@ -559,7 +559,7 @@ export default function StudentDashboard() {
                                 Released
                               </span>
                               <span className="font-mono text-sm font-extrabold text-emerald-600 bg-emerald-50 px-2.5 py-1.5 rounded-lg border border-emerald-250 font-bold mr-2">
-                                {exam.score}%
+                                {exam.correctAnswers !== null && exam.correctAnswers !== undefined ? `${exam.correctAnswers}/${exam.totalQuestions}` : `${exam.score}%`}
                               </span>
                               <button
                                 type="button"

@@ -21,6 +21,10 @@ model User {
   passportUrl  String?
   createdAt    DateTime         @default(now())
   
+  firstCA      Float?
+  secondCA     Float?
+  examScore    Float?
+
   // Relations
   questions    Question[]
   attempts     StudentAttempt[]
@@ -144,6 +148,7 @@ model Result {
   studentId      String
   student        User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
   score          Float    // Percentage or absolute score
+  correctAnswers Int      @default(0)
   totalQuestions Int      // Total questions answered/attempted
   timeSpent      Int      // in seconds
   createdAt      DateTime @default(now())

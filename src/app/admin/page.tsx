@@ -21,6 +21,8 @@ import {
   Eye,
   EyeOff,
   Edit,
+  FileSpreadsheet,
+  AlertCircle,
 } from "lucide-react";
 import MathRenderer from "@/components/MathRenderer";
 
@@ -75,6 +77,102 @@ export default function AdminDashboard() {
 
   const [formError, setFormError] = useState("");
   const [formSubmitting, setFormSubmitting] = useState(false);
+  const [formSuccess, setFormSuccess] = useState("");
+  const [selectedClassId, setSelectedClassId] = useState<string>("");
+  const [caScores, setCaScores] = useState<Record<string, { firstCA: string; secondCA: string; examScore: string }>>({});
+
+  useEffect(() => {
+    if (classes.length > 0 && !selectedClassId) {
+      setSelectedClassId(classes[0].id);
+    }
+  }, [classes]);
+
+  useEffect(() => {
+    const initialScores: Record<string, { firstCA: string; secondCA: string; examScore: string }> = {};
+    students.forEach((s) => {
+      initialScores[s.id] = {
+        firstCA: s.firstCA?.toString() || "",
+        secondCA: s.secondCA?.toString() || "",
+        examScore: s.examScore?.toString() || "",
+      };
+    });
+    setCaScores(initialScores);
+  }, [students]);
+
+  const handleCaChange = (studentId: string, field: 'firstCA' | 'secondCA' | 'examScore', value: string) => {
+    setCaScores((prev) => ({
+      ...prev,
+      [studentId]: {
+        ...prev[studentId],
+        [field]: value,
+      },
+    }));
+  };
+
+  const handleSaveSingleCA = async (studentId: string) => {
+    const scores = caScores[studentId];
+    if (!scores) return;
+
+    setFormSubmitting(true);
+    setFormError("");
+    setFormSuccess("");
+    try {
+      const res = await fetch("/api/students/ca", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: studentId,
+          firstCA: scores.firstCA === "" ? null : parseFloat(scores.firstCA),
+          secondCA: scores.secondCA === "" ? null : parseFloat(scores.secondCA),
+          examScore: scores.examScore === "" ? null : parseFloat(scores.examScore),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update CA scores");
+      
+      setFormSuccess("CA scores updated successfully!");
+      setStudents((prev) =>
+        prev.map((s) => (s.id === studentId ? { ...s, firstCA: data.student.firstCA, secondCA: data.student.secondCA, examScore: data.student.examScore } : s))
+      );
+    } catch (err: any) {
+      setFormError(err.message);
+    } finally {
+      setFormSubmitting(false);
+    }
+  };
+
+  const handleSaveAllCA = async () => {
+    const classStudents = students.filter(s => s.classId === selectedClassId);
+    const payload = classStudents.map((s) => {
+      const scores = caScores[s.id] || { firstCA: "", secondCA: "", examScore: "" };
+      return {
+        id: s.id,
+        firstCA: scores.firstCA === "" ? null : parseFloat(scores.firstCA),
+        secondCA: scores.secondCA === "" ? null : parseFloat(scores.secondCA),
+        examScore: scores.examScore === "" ? null : parseFloat(scores.examScore),
+      };
+    });
+
+    setFormSubmitting(true);
+    setFormError("");
+    setFormSuccess("");
+    try {
+      const res = await fetch("/api/students/ca", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update all CA scores");
+
+      setFormSuccess(`Successfully saved CA scores for ${data.count} students!`);
+      fetchData();
+    } catch (err: any) {
+      setFormError(err.message);
+    } finally {
+      setFormSubmitting(false);
+    }
+  };
 
   // Fetch all initial data
   const fetchData = async () => {
@@ -551,6 +649,17 @@ export default function AdminDashboard() {
           >
             <Calendar className="w-4.5 h-4.5 flex-shrink-0" />
             <span className={sidebarCollapsed ? "inline md:hidden" : ""}>Exams Scheduler</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("ca")}
+            className={`w-auto md:w-full flex items-center ${sidebarCollapsed ? 'md:justify-center' : 'gap-3 px-4'} py-2.5 md:py-3 px-3 md:px-4 rounded-xl text-sm font-medium transition cursor-pointer flex-shrink-0 ${
+              activeTab === "ca" ? "bg-[#FFD100] text-[#1B2A6B] font-bold shadow-sm" : "text-slate-200 hover:bg-[#152052] hover:text-white"
+            }`}
+            title="CA & Exam Scores"
+          >
+            <FileSpreadsheet className="w-4.5 h-4.5 flex-shrink-0" />
+            <span className={sidebarCollapsed ? "inline md:hidden" : ""}>CA & Exam Scores</span>
           </button>
 
           <button
@@ -1050,6 +1159,149 @@ export default function AdminDashboard() {
                             </td>
                           </tr>
                         ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: CA & EXAM SCORES */}
+          {activeTab === "ca" && (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-bold">Continuous Assessment & Exam Scores</h2>
+                  <p className="text-slate-400 text-xs mt-0.5">View and update academic CA and final exam scores per class.</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <select
+                    value={selectedClassId}
+                    onChange={(e) => setSelectedClassId(e.target.value)}
+                    className="bg-slate-50 border border-slate-200 text-slate-800 text-xs rounded-xl p-2.5 outline-none cursor-pointer focus:ring-1 focus:ring-[#1B2A6B]"
+                  >
+                    <option value="">Select Class Room</option>
+                    {classes.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} {c.arm}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={handleSaveAllCA}
+                    disabled={formSubmitting || !selectedClassId}
+                    className="flex items-center gap-2 bg-[#FFD100] hover:bg-[#FFD100]/90 text-[#1B2A6B] px-4 py-2.5 rounded-xl text-sm font-bold transition cursor-pointer shadow-sm disabled:opacity-50"
+                  >
+                    <FileSpreadsheet className="w-4 h-4" />
+                    <span>{formSubmitting ? "Saving..." : "Save All Scores"}</span>
+                  </button>
+                </div>
+              </div>
+
+              {(formSuccess || formError) && (
+                <div className="space-y-2">
+                  {formSuccess && (
+                    <div className="p-3 bg-emerald-950/40 border border-emerald-500/20 text-emerald-450 rounded-xl text-xs flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4" /> {formSuccess}
+                    </div>
+                  )}
+                  {formError && (
+                    <div className="p-3 bg-red-950/40 border border-red-500/20 text-red-400 rounded-xl text-xs whitespace-pre-line flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 mt-0.5" /> {formError}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="bg-white border border-slate-200 shadow-sm rounded-2xl p-6 text-slate-800">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-slate-400 font-bold uppercase tracking-wider text-xs">
+                        <th className="pb-3">Student Name</th>
+                        <th className="pb-3">Roll Number</th>
+                        <th className="pb-3 text-center">First CA (20)</th>
+                        <th className="pb-3 text-center">Second CA (20)</th>
+                        <th className="pb-3 text-center">Exam Score (60)</th>
+                        <th className="pb-3 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {!selectedClassId ? (
+                        <tr>
+                          <td colSpan={6} className="py-4 text-center text-slate-400">Please select a class from the dropdown to load students.</td>
+                        </tr>
+                      ) : students.filter((s) => s.classId === selectedClassId).length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="py-4 text-center text-slate-400">No students registered in this class.</td>
+                        </tr>
+                      ) : (
+                        students
+                          .filter((s) => s.classId === selectedClassId)
+                          .map((stud) => {
+                            const scores = caScores[stud.id] || { firstCA: "", secondCA: "", examScore: "" };
+                            return (
+                              <tr key={stud.id} className="border-b border-slate-100 hover:bg-slate-50/50">
+                                <td className="py-3.5 font-bold text-slate-800 font-semibold flex items-center gap-3">
+                                  <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                                    {stud.passportUrl ? (
+                                      <img src={stud.passportUrl} alt={stud.name} className="w-full h-full object-cover" />
+                                    ) : (
+                                      <span className="text-xs font-bold text-[#1B2A6B]">{stud.name.substring(0, 2).toUpperCase()}</span>
+                                    )}
+                                  </div>
+                                  <span>{stud.name}</span>
+                                </td>
+                                <td className="py-3.5 text-slate-500 font-mono text-xs">{stud.rollNumber || "N/A"}</td>
+                                <td className="py-3.5 text-center">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="20"
+                                    step="0.5"
+                                    value={scores.firstCA}
+                                    onChange={(e) => handleCaChange(stud.id, "firstCA", e.target.value)}
+                                    placeholder="0.0"
+                                    className="w-24 bg-slate-50 border border-slate-200 focus:border-[#1B2A6B] focus:ring-1 focus:ring-[#1B2A6B]/20 text-slate-850 text-xs rounded-lg p-2 outline-none text-center inline-block transition"
+                                  />
+                                </td>
+                                <td className="py-3.5 text-center">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="20"
+                                    step="0.5"
+                                    value={scores.secondCA}
+                                    onChange={(e) => handleCaChange(stud.id, "secondCA", e.target.value)}
+                                    placeholder="0.0"
+                                    className="w-24 bg-slate-50 border border-slate-200 focus:border-[#1B2A6B] focus:ring-1 focus:ring-[#1B2A6B]/20 text-slate-850 text-xs rounded-lg p-2 outline-none text-center inline-block transition"
+                                  />
+                                </td>
+                                <td className="py-3.5 text-center">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="60"
+                                    step="0.5"
+                                    value={scores.examScore}
+                                    onChange={(e) => handleCaChange(stud.id, "examScore", e.target.value)}
+                                    placeholder="0.0"
+                                    className="w-24 bg-slate-50 border border-slate-200 focus:border-[#1B2A6B] focus:ring-1 focus:ring-[#1B2A6B]/20 text-slate-850 text-xs rounded-lg p-2 outline-none text-center inline-block transition"
+                                  />
+                                </td>
+                                <td className="py-3.5 text-right">
+                                  <button
+                                    onClick={() => handleSaveSingleCA(stud.id)}
+                                    disabled={formSubmitting}
+                                    className="px-3.5 py-1.5 text-xs font-bold bg-[#1B2A6B] hover:bg-[#152052] text-white rounded-lg transition border border-transparent shadow-sm cursor-pointer disabled:opacity-50"
+                                  >
+                                    Save Row
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })
                       )}
                     </tbody>
                   </table>

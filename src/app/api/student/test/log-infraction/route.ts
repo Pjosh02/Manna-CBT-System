@@ -121,6 +121,7 @@ export async function POST(request: NextRequest) {
                 examId,
                 studentId,
                 score,
+                correctAnswers: correctAnswersCount,
                 totalQuestions: totalQuestionsCount,
                 timeSpent: 1, // Placeholder for auto-submission timespent
               },

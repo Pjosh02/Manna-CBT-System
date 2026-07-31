@@ -467,7 +467,7 @@ export async function GET(
       </div>
       <div class="score-badge-container">
         <div class="score-label">Score Received</div>
-        <div class="score-percentage">${result.score}%</div>
+        <div class="score-percentage">${result.correctAnswers ?? Math.round((result.score / 100) * result.totalQuestions)}/${result.totalQuestions}</div>
       </div>
     </div>
     

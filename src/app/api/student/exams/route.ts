@@ -62,6 +62,8 @@ export async function GET(request: NextRequest) {
         hasTaken,
         resultsReleased: exam.resultsReleased,
         score: exam.resultsReleased && result ? result.score : null,
+        correctAnswers: exam.resultsReleased && result ? (result.correctAnswers ?? Math.round((result.score / 100) * result.totalQuestions)) : null,
+        totalQuestions: exam.resultsReleased && result ? result.totalQuestions : null,
         timeSpent: exam.resultsReleased && result ? result.timeSpent : null,
         examSubjects: exam.examSubjects.map((es) => ({
           subjectId: es.subjectId,

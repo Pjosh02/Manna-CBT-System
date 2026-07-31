@@ -112,6 +112,7 @@ export async function POST(request: NextRequest) {
         examId,
         studentId,
         score,
+        correctAnswers: correctAnswersCount,
         totalQuestions: totalQuestionsCount,
         timeSpent: parseInt(timeSpent, 10),
       },
