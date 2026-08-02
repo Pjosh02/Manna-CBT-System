@@ -765,16 +765,7 @@ export default function TeacherDashboard() {
             <span className={sidebarCollapsed ? "inline md:hidden" : ""}>Questions Bank ({questions.length})</span>
           </button>
 
-          <button
-            onClick={() => setActiveTab("exams")}
-            className={`w-auto md:w-full flex items-center ${sidebarCollapsed ? 'md:justify-center' : 'gap-3 px-4'} py-2.5 md:py-3 px-3 md:px-4 rounded-xl text-sm font-medium transition cursor-pointer flex-shrink-0 ${
-              activeTab === "exams" ? "bg-[#FFD100] text-[#1B2A6B] font-bold shadow-sm" : "text-slate-200 hover:bg-[#152052] hover:text-white"
-            }`}
-            title="Scheduled Tests"
-          >
-            <Calendar className="w-4.5 h-4.5 flex-shrink-0" />
-            <span className={sidebarCollapsed ? "inline md:hidden" : ""}>Scheduled Tests ({exams.length})</span>
-          </button>
+
 
           <button
             onClick={() => setActiveTab("subjects")}
