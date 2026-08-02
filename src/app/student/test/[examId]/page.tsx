@@ -373,7 +373,10 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
 
   // Question Palette Calculations
   const getSubjectQuestionsAttempted = (sub: any) => {
-    return sub.questions.filter((q: any) => attempts[q.id]?.selectedOption).length;
+    return sub.questions.filter((q: any) => {
+      const option = attempts[q.id]?.selectedOption;
+      return option && option.trim() !== "";
+    }).length;
   };
 
   const getTotalQuestionsAttempted = () => {
@@ -720,25 +723,35 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
                   </div>
                 </div>
 
-                {/* Answers A–F options vertical list */}
                 {activeQuestion?.questionType === "THEORY" ? (
-                  <div className="pl-13 py-6">
-                    <div className="bg-blue-50/50 border border-[#1B2A6B]/25 text-[#1B2A6B] rounded-2xl p-6 flex items-start gap-4 max-w-2xl shadow-sm">
+                  <div className="pl-13 py-6 space-y-4 max-w-2xl">
+                    <div className="bg-blue-50/50 border border-[#1B2A6B]/25 text-[#1B2A6B] rounded-2xl p-6 flex items-start gap-4 shadow-sm">
                       <div className="p-3 bg-white rounded-xl border border-[#1B2A6B]/15 shadow-sm text-slate-800 flex items-center justify-center flex-shrink-0">
                         <FileText className="w-6 h-6 text-[#1B2A6B]" />
                       </div>
                       <div className="space-y-1">
                         <p className="text-sm font-extrabold tracking-wide uppercase text-slate-700">Theory Question</p>
-                        <p className="text-xs text-slate-500 leading-relaxed font-medium">
-                          Please write your complete solution, steps, and final answers in your paper answer booklet. No response is collected on the computer.
+                        <p className="text-xs text-slate-550 leading-relaxed font-medium">
+                          Please type your answer in the editor below. Your response is saved automatically.
                         </p>
                         {activeQuestion.instruction && (
-                          <div className="mt-3 p-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs font-semibold leading-relaxed">
+                          <div className="mt-3 p-3 bg-amber-50 border border-amber-250 text-amber-800 rounded-xl text-xs font-semibold leading-relaxed">
                             <span className="text-amber-900 font-extrabold">Instruction: </span>
                             {activeQuestion.instruction}
                           </div>
                         )}
                       </div>
+                    </div>
+
+                    <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-2">
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">Your Written Answer:</label>
+                      <textarea
+                        rows={8}
+                        value={activeAttempt.selectedOption || ""}
+                        onChange={(e) => saveAttempt(activeQuestion.id, activeSubject.subjectId, e.target.value, activeAttempt.isFlagged)}
+                        className="w-full bg-slate-50 border border-slate-200 focus:border-[#1B2A6B] focus:ring-1 focus:ring-[#1B2A6B]/25 text-slate-850 text-sm rounded-xl p-3 outline-none transition resize-y font-medium"
+                        placeholder="Type your response or answer here..."
+                      />
                     </div>
                   </div>
                 ) : (
@@ -892,22 +905,26 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
                   {mcqQuestions.map((q: any, mcqIdx: number) => {
                     const idx = activeSubject.questions.findIndex((x: any) => x.id === q.id);
                     const isCurrent = activeQuestionIndex === idx;
-                    const isAttempted = !!attempts[q.id]?.selectedOption;
+                    const isAttempted = !!(attempts[q.id]?.selectedOption && attempts[q.id]?.selectedOption?.trim() !== "");
                     const isFlagged = !!attempts[q.id]?.isFlagged;
+
+                    let btnClass = "w-14 h-9 text-xs font-bold rounded-xl flex items-center justify-center transition border cursor-pointer ";
+                    if (isAttempted) {
+                      btnClass += "bg-emerald-600 border-emerald-600 text-white ";
+                    } else if (isFlagged) {
+                      btnClass += "bg-amber-50 border-amber-300 text-amber-700 ";
+                    } else {
+                      btnClass += "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-800 ";
+                    }
+                    if (isCurrent) {
+                      btnClass += "ring-2 ring-[#1B2A6B]/40 ring-offset-1 border-[#1B2A6B] font-extrabold ";
+                    }
 
                     return (
                       <button
                         key={q.id}
                         onClick={() => setActiveQuestionIndex(idx)}
-                        className={`w-14 h-9 text-xs font-bold rounded-xl flex items-center justify-center transition border cursor-pointer ${
-                          isCurrent
-                            ? "border-[#1B2A6B] bg-blue-50 text-[#1B2A6B] font-extrabold shadow-sm ring-2 ring-[#1B2A6B]/20"
-                            : isFlagged
-                            ? "border-amber-300 bg-amber-50 text-amber-700"
-                            : isAttempted
-                            ? "border-blue-200 bg-blue-50/50 text-[#1B2A6B]"
-                            : "border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
-                        }`}
+                        className={btnClass}
                       >
                         Q {mcqIdx + 1}
                       </button>
@@ -927,19 +944,26 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
                   {theoryQuestions.map((q: any, theoryIdx: number) => {
                     const idx = activeSubject.questions.findIndex((x: any) => x.id === q.id);
                     const isCurrent = activeQuestionIndex === idx;
+                    const isAttempted = !!(attempts[q.id]?.selectedOption && attempts[q.id]?.selectedOption?.trim() !== "");
                     const isFlagged = !!attempts[q.id]?.isFlagged;
+
+                    let btnClass = "w-14 h-9 text-xs font-bold rounded-xl flex items-center justify-center transition border cursor-pointer ";
+                    if (isAttempted) {
+                      btnClass += "bg-emerald-600 border-emerald-600 text-white ";
+                    } else if (isFlagged) {
+                      btnClass += "bg-amber-50 border-amber-300 text-amber-700 ";
+                    } else {
+                      btnClass += "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-800 ";
+                    }
+                    if (isCurrent) {
+                      btnClass += "ring-2 ring-[#1B2A6B]/40 ring-offset-1 border-[#1B2A6B] font-extrabold ";
+                    }
 
                     return (
                       <button
                         key={q.id}
                         onClick={() => setActiveQuestionIndex(idx)}
-                        className={`w-14 h-9 text-xs font-bold rounded-xl flex items-center justify-center transition border cursor-pointer ${
-                          isCurrent
-                            ? "border-[#1B2A6B] bg-blue-50 text-[#1B2A6B] font-extrabold shadow-sm ring-2 ring-[#1B2A6B]/20"
-                            : isFlagged
-                            ? "border-amber-300 bg-amber-50 text-amber-700"
-                            : "border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
-                        }`}
+                        className={btnClass}
                       >
                         T {theoryIdx + 1}
                       </button>
