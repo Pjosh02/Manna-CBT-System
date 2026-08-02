@@ -36,7 +36,10 @@ export async function GET(request: NextRequest) {
         classes: {
           some: { id: { in: targetClassIds } },
         },
-        teacherId: payload.id,
+        OR: [
+          { teacherId: null },
+          { teacherId: payload.id }
+        ]
       },
       orderBy: { name: "asc" },
       include: {
