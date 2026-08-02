@@ -75,6 +75,7 @@ function NewQuestionForm() {
     questionType: "MCQ",
     difficulty: "MEDIUM",
     tags: "",
+    instruction: "",
   });
 
   // Validation errors
@@ -134,6 +135,7 @@ function NewQuestionForm() {
               difficulty: questionToEdit.difficulty || "MEDIUM",
               tags: questionToEdit.tags || "",
               questionType: questionToEdit.questionType || "MCQ",
+              instruction: questionToEdit.instruction || "",
             });
           }
         }
@@ -312,6 +314,7 @@ function NewQuestionForm() {
       difficulty: form.difficulty,
       tags: form.tags,
       questionType: form.questionType || "MCQ",
+      instruction: isTheory && form.instruction.trim() ? form.instruction : null,
     };
 
     try {
@@ -347,6 +350,7 @@ function NewQuestionForm() {
           points: 1,
           difficulty: "MEDIUM",
           tags: "",
+          instruction: "",
         }));
       } else {
         router.push(classId ? `/teacher?classId=${classId}` : "/teacher");
@@ -1026,6 +1030,29 @@ function NewQuestionForm() {
                 </div>
               </div>
             </div>
+
+            {/* THEORY INSTRUCTION FIELD */}
+            {form.questionType === "THEORY" && (
+              <div className="space-y-4 bg-slate-50 border border-slate-200 rounded-2xl p-5 animate-fade-in">
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[#1B2A6B] flex items-center gap-1.5 font-sans mb-1">
+                    Theory Answering Instruction
+                  </h3>
+                  <p className="text-[11px] text-slate-500 mb-3 font-medium">
+                    Provide guidelines on how students should construct their answers for this theory question (e.g. "Explain in not more than 3 sentences", "State 3 points with examples").
+                  </p>
+                  <input
+                    type="text"
+                    id="theory-instruction"
+                    placeholder="e.g. Write your answer step-by-step and round up your final figure to 2 decimal places."
+                    value={form.instruction}
+                    onFocus={() => setActiveInputId("theory-instruction")}
+                    onChange={(e) => setForm({ ...form, instruction: e.target.value })}
+                    className="w-full bg-white border border-slate-200 focus:border-[#1B2A6B] focus:ring-2 focus:ring-[#1B2A6B]/15 text-slate-800 text-sm rounded-lg p-2.5 outline-none transition font-medium"
+                  />
+                </div>
+              </div>
+            )}
 
             {/* MULTIPLE CHOICE OPTIONS */}
             {form.questionType !== "THEORY" && (

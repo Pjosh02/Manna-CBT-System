@@ -722,6 +722,12 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
                         <p className="text-xs text-slate-500 leading-relaxed font-medium">
                           Please write your complete solution, steps, and final answers in your paper answer booklet. No response is collected on the computer.
                         </p>
+                        {activeQuestion.instruction && (
+                          <div className="mt-3 p-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs font-semibold leading-relaxed">
+                            <span className="text-amber-900 font-extrabold">Instruction: </span>
+                            {activeQuestion.instruction}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

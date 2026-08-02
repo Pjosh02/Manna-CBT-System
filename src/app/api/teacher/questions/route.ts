@@ -71,6 +71,7 @@ export async function POST(request: NextRequest) {
           tags,
           questionType,
           sequenceNumber,
+          instruction,
         } = row;
 
         const isTheory = questionType === "THEORY";
@@ -120,6 +121,7 @@ export async function POST(request: NextRequest) {
             difficulty: difficulty || "MEDIUM",
             tags: tags || null,
             questionType: questionType || "MCQ",
+            instruction: instruction || null,
             sequenceNumber: sequenceNumber ? parseInt(sequenceNumber.toString()) : 0,
           },
         });
@@ -153,6 +155,7 @@ export async function POST(request: NextRequest) {
       tags,
       questionType,
       sequenceNumber,
+      instruction,
     } = body;
 
     const isTheory = questionType === "THEORY";
@@ -198,6 +201,7 @@ export async function POST(request: NextRequest) {
         difficulty: difficulty || "MEDIUM",
         tags: tags || null,
         questionType: questionType || "MCQ",
+        instruction: instruction || null,
         sequenceNumber: sequenceNumber ? parseInt(sequenceNumber.toString()) : 0,
       },
     });
@@ -236,6 +240,7 @@ export async function PATCH(request: NextRequest) {
       tags,
       questionType,
       sequenceNumber,
+      instruction,
     } = await request.json();
 
     if (!id) {
@@ -288,6 +293,7 @@ export async function PATCH(request: NextRequest) {
         difficulty: difficulty !== undefined ? difficulty : undefined,
         tags: tags !== undefined ? tags : undefined,
         questionType: questionType !== undefined ? questionType : undefined,
+        instruction: instruction !== undefined ? instruction : undefined,
         sequenceNumber: sequenceNumber !== undefined ? parseInt(sequenceNumber.toString()) : undefined,
       },
     });
