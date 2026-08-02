@@ -47,7 +47,7 @@ export default function AdminDashboard() {
   // Form states
   const [classForm, setClassForm] = useState({ name: "", arm: "", academicSession: "2025/2026" });
   const [subjectForm, setSubjectForm] = useState({ name: "", classIds: [] as string[] });
-  const [teacherForm, setTeacherForm] = useState({ name: "", email: "", password: "", classIds: [] as string[] });
+  const [teacherForm, setTeacherForm] = useState({ name: "", email: "", password: "", classIds: [] as string[], subjectIds: [] as string[] });
   const [studentForm, setStudentForm] = useState({ name: "", rollNumber: "", classId: "", passportUrl: "" });
   const [showTeacherPassword, setShowTeacherPassword] = useState(false);
   const [editingStudent, setEditingStudent] = useState<any>(null);
@@ -58,7 +58,7 @@ export default function AdminDashboard() {
     if (modalType !== "teacher") {
       setShowTeacherPassword(false);
       setEditingTeacher(null);
-      setTeacherForm({ name: "", email: "", password: "", classIds: [] as string[] });
+      setTeacherForm({ name: "", email: "", password: "", classIds: [] as string[], subjectIds: [] as string[] });
     }
     if (modalType !== "student") {
       setEditingStudent(null);
@@ -336,7 +336,7 @@ export default function AdminDashboard() {
       
       setModalType(null);
       setEditingTeacher(null);
-      setTeacherForm({ name: "", email: "", password: "", classIds: [] as string[] });
+      setTeacherForm({ name: "", email: "", password: "", classIds: [] as string[], subjectIds: [] as string[] });
       fetchData();
     } catch (err: any) {
       setFormError(err.message);
@@ -953,7 +953,8 @@ export default function AdminDashboard() {
                                       name: t.name,
                                       email: t.email,
                                       password: "",
-                                      classIds: t.classes ? t.classes.map((c: any) => c.id) : (t.classId ? [t.classId] : [])
+                                      classIds: t.classes ? t.classes.map((c: any) => c.id) : (t.classId ? [t.classId] : []),
+                                      subjectIds: t.subjectsCreated ? t.subjectsCreated.map((s: any) => s.id) : []
                                     });
                                     setModalType("teacher");
                                   }}
@@ -1568,6 +1569,32 @@ export default function AdminDashboard() {
                               className="accent-[#1B2A6B]"
                             />
                             <span>{cls.name} {cls.arm}</span>
+                          </label>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Assign Subjects</label>
+                    <div className="grid grid-cols-2 gap-2 mt-1.5 max-h-40 overflow-y-auto p-1 border border-slate-100 rounded-lg">
+                      {subjects.length === 0 ? (
+                        <p className="col-span-2 text-xs text-slate-400 italic py-2">No subjects registered yet.</p>
+                      ) : (
+                        subjects.map((sub) => (
+                          <label key={sub.id} className="flex items-center gap-2 p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs cursor-pointer select-none text-slate-700 hover:bg-slate-100 transition">
+                            <input
+                              type="checkbox"
+                              checked={teacherForm.subjectIds?.includes(sub.id) || false}
+                              onChange={(e) => {
+                                const updated = e.target.checked
+                                  ? [...(teacherForm.subjectIds || []), sub.id]
+                                  : (teacherForm.subjectIds || []).filter((id) => id !== sub.id);
+                                setTeacherForm({ ...teacherForm, subjectIds: updated });
+                              }}
+                              className="accent-[#1B2A6B]"
+                            />
+                            <span>{sub.name}</span>
                           </label>
                         ))
                       )}

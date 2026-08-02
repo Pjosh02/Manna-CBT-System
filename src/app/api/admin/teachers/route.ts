@@ -12,6 +12,7 @@ export async function GET() {
       include: {
         class: true,
         classes: true,
+        subjectsCreated: true,
       },
     });
     return NextResponse.json({ teachers });
@@ -23,7 +24,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const { name, email, password, classId, classIds } = await request.json();
+    const { name, email, password, classId, classIds, subjectIds } = await request.json();
 
     if (!name || !email || !password) {
       return NextResponse.json(
@@ -68,8 +69,11 @@ export async function POST(request: NextRequest) {
         classes: {
           connect: targetClassIds.map((id) => ({ id })),
         },
+        subjectsCreated: {
+          connect: Array.isArray(subjectIds) ? subjectIds.map((id) => ({ id })) : [],
+        },
       },
-      include: { class: true, classes: true },
+      include: { class: true, classes: true, subjectsCreated: true },
     });
 
     return NextResponse.json({ teacher: newTeacher }, { status: 201 });
@@ -101,7 +105,7 @@ export async function DELETE(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const { id, name, email, password, classId, classIds } = await request.json();
+    const { id, name, email, password, classId, classIds, subjectIds } = await request.json();
 
     if (!id || !name || !email) {
       return NextResponse.json(
@@ -148,6 +152,9 @@ export async function PATCH(request: NextRequest) {
       classes: {
         set: targetClassIds.map((id) => ({ id })),
       },
+      subjectsCreated: {
+        set: Array.isArray(subjectIds) ? subjectIds.map((id) => ({ id })) : [],
+      },
     };
 
     if (password && password.trim() !== "") {
@@ -157,7 +164,7 @@ export async function PATCH(request: NextRequest) {
     const updatedTeacher = await prisma.user.update({
       where: { id },
       data: dataUpdate,
-      include: { class: true, classes: true },
+      include: { class: true, classes: true, subjectsCreated: true },
     });
 
     return NextResponse.json({ teacher: updatedTeacher });

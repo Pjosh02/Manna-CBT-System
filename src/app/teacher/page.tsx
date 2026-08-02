@@ -1412,16 +1412,6 @@ export default function TeacherDashboard() {
                   <h2 className="text-xl font-bold">Class Subjects</h2>
                   <p className="text-xs text-slate-500 mt-1">Manage subjects currently enabled for your class.</p>
                 </div>
-                <button
-                  onClick={() => {
-                    setModalType("subject");
-                    setSubjectForm({ name: "" });
-                  }}
-                  className="flex items-center gap-2 bg-[#1B2A6B] hover:bg-[#152052] text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition cursor-pointer shadow-sm border-b-2 border-b-[#FFD100]"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Add Subject</span>
-                </button>
               </div>
 
               <div className="bg-white border border-slate-200 shadow-sm rounded-2xl p-6 text-slate-800">
@@ -1438,7 +1428,7 @@ export default function TeacherDashboard() {
                     <tbody>
                       {subjects.length === 0 ? (
                         <tr>
-                          <td colSpan={4} className="py-4 text-center text-slate-400">No subjects assigned to this classroom yet. Click Add Subject to register.</td>
+                          <td colSpan={4} className="py-4 text-center text-slate-400">No subjects assigned to this classroom yet.</td>
                         </tr>
                       ) : (
                         subjects.map((sub) => (
