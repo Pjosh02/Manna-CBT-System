@@ -104,6 +104,7 @@ model Exam {
   endTime         DateTime
   durationMinutes Int
   status          String   // "DRAFT" | "SCHEDULED" | "LIVE" | "CLOSED"
+  assessmentType  String   @default("Exam")
   resultsReleased Boolean  @default(false)
   createdAt       DateTime @default(now())
 

@@ -100,13 +100,15 @@ function NewQuestionForm() {
         const subjectsData = await subjectsRes.json();
         setSubjects(subjectsData.subjects || []);
 
-        // Prepopulate default subject & questionType if available
+        // Prepopulate default subject, questionType & assessmentType if available
         const prepopulatedSubjectId = searchParams.get("subjectId");
         const typeParam = searchParams.get("type") || "mcq";
+        const prepopulatedAssessmentType = searchParams.get("assessmentType");
         setForm((prev) => ({
           ...prev,
           subjectId: prepopulatedSubjectId || "",
           questionType: typeParam.toUpperCase(),
+          assessmentType: prepopulatedAssessmentType || prev.assessmentType,
         }));
 
         // If editing, fetch the specific question details

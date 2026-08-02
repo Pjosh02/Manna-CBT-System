@@ -76,6 +76,7 @@ export async function POST(request: NextRequest) {
         where: {
           subjectId: es.subjectId,
           status: "PUBLISHED",
+          assessmentType: exam.assessmentType || "Exam",
         },
       });
 

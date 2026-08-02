@@ -109,6 +109,7 @@ export async function GET(request: NextRequest) {
         where: {
           subjectId: es.subjectId,
           status: "PUBLISHED",
+          assessmentType: exam.assessmentType || "Exam",
         },
       });
 

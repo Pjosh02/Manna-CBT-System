@@ -135,6 +135,7 @@ export async function GET(
         where: {
           subjectId: es.subjectId,
           status: "PUBLISHED",
+          assessmentType: exam.assessmentType || "Exam",
         },
       });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   GraduationCap,
@@ -23,6 +23,7 @@ import {
   Eye,
   EyeOff,
   X,
+  ChevronDown,
 } from "lucide-react";
 import MathRenderer from "@/components/MathRenderer";
 
@@ -62,6 +63,114 @@ export default function TeacherDashboard() {
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
 
   const [caScores, setCaScores] = useState<Record<string, { firstCA: string; secondCA: string; examScore: string }>>({});
+
+  const [assessmentPrompt, setAssessmentPrompt] = useState<{
+    subjectId: string;
+    type: "mcq" | "theory";
+  } | null>(null);
+  const [chosenAssessmentType, setChosenAssessmentType] = useState("1st CA");
+  const [customAssessmentType, setCustomAssessmentType] = useState("");
+  const [selectedPanelForEdit, setSelectedPanelForEdit] = useState<any | null>(null);
+  const [selectedPanelForSchedule, setSelectedPanelForSchedule] = useState<any | null>(null);
+  const [scheduleForm, setScheduleForm] = useState({
+    durationMinutes: "45",
+  });
+  const [expandedPanels, setExpandedPanels] = useState<Record<string, boolean>>({});
+
+  // Group questions by subject and assessmentType
+  const groupedAssessments = useMemo(() => {
+    const groups: Record<string, {
+      subjectId: string;
+      subjectName: string;
+      assessmentType: string;
+      questions: typeof questions;
+    }> = {};
+
+    questions.forEach((q) => {
+      // Apply filters similar to filteredQuestions
+      if (selectedSubjectId && q.subjectId !== selectedSubjectId) return;
+
+      const subjectId = q.subjectId;
+      const subjectName = q.subject?.name || "Unknown Subject";
+      const assessmentType = q.assessmentType || "Exam";
+      const key = `${subjectId}-${assessmentType}`;
+
+      if (!groups[key]) {
+        groups[key] = {
+          subjectId,
+          subjectName,
+          assessmentType,
+          questions: [],
+        };
+      }
+      groups[key].questions.push(q);
+    });
+
+    return Object.values(groups).sort((a, b) => {
+      if (a.subjectName !== b.subjectName) {
+        return a.subjectName.localeCompare(b.subjectName);
+      }
+      return a.assessmentType.localeCompare(b.assessmentType);
+    });
+  }, [questions, selectedSubjectId]);
+
+  // Derived questions in the selected edit panel
+  const editPanelQuestions = useMemo(() => {
+    if (!selectedPanelForEdit) return [];
+    return questions.filter(
+      (q) =>
+        q.subjectId === selectedPanelForEdit.subjectId &&
+        (q.assessmentType || "Exam") === selectedPanelForEdit.assessmentType
+    );
+  }, [questions, selectedPanelForEdit]);
+
+  // Publish assessment as a LIVE exam
+  const handlePublishAssessment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedPanelForSchedule) return;
+    setFormSubmitting(true);
+    setFormError("");
+
+    try {
+      const subjectName = selectedPanelForSchedule.subjectName;
+      const assessmentType = selectedPanelForSchedule.assessmentType;
+      
+      const payload = {
+        title: `${subjectName} — ${assessmentType}`,
+        classId: selectedClassId,
+        startTime: new Date().toISOString(),
+        endTime: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year
+        durationMinutes: scheduleForm.durationMinutes,
+        status: "LIVE",
+        assessmentType,
+        subjects: [
+          {
+            subjectId: selectedPanelForSchedule.subjectId,
+            numberOfQuestions: selectedPanelForSchedule.questions.length.toString(),
+          },
+        ],
+      };
+
+      const res = await fetch("/api/teacher/exams", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to publish assessment");
+
+      setFormSuccess(`Successfully published ${subjectName} — ${assessmentType}!`);
+      setExams([data.exam, ...exams]);
+      setModalType(null);
+      setSelectedPanelForSchedule(null);
+      fetchClassData(selectedClassId);
+    } catch (err: any) {
+      setFormError(err.message);
+    } finally {
+      setFormSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     const initialScores: Record<string, { firstCA: string; secondCA: string; examScore: string }> = {};
@@ -883,7 +992,13 @@ export default function TeacherDashboard() {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  router.push(`/teacher/questions/new?subjectId=${sub.id}&classId=${selectedClassId}&type=mcq`);
+                                  setAssessmentPrompt({
+                                    subjectId: sub.id,
+                                    type: "mcq",
+                                  });
+                                  setChosenAssessmentType("1st CA");
+                                  setCustomAssessmentType("");
+                                  setModalType("select-assessment-type");
                                 }}
                                 className="flex items-center gap-1 bg-[#1B2A6B] hover:bg-[#152052] text-white text-xs px-3 py-1.5 rounded-lg font-semibold transition cursor-pointer"
                               >
@@ -892,7 +1007,13 @@ export default function TeacherDashboard() {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  router.push(`/teacher/questions/new?subjectId=${sub.id}&classId=${selectedClassId}&type=theory`);
+                                  setAssessmentPrompt({
+                                    subjectId: sub.id,
+                                    type: "theory",
+                                  });
+                                  setChosenAssessmentType("1st CA");
+                                  setCustomAssessmentType("");
+                                  setModalType("select-assessment-type");
                                 }}
                                 className="flex items-center gap-1 bg-[#FFD100] hover:bg-[#FFD100]/90 text-[#1B2A6B] text-xs px-3 py-1.5 rounded-lg font-bold transition cursor-pointer"
                               >
@@ -922,272 +1043,182 @@ export default function TeacherDashboard() {
                 </div>
               )}
 
-              {/* Questions Grid */}
+              {/* Grouped Assessment Panels */}
               <div className="space-y-4">
-                {filteredQuestions.length === 0 ? (
+                {groupedAssessments.length === 0 ? (
                   <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center text-slate-400">
                     {selectedSubjectId
                       ? "No questions found matching the selected subject."
                       : "Your questions bank is empty. Author questions to get started."}
                   </div>
                 ) : (
-                  filteredQuestions.map((q) => (
-                    <div key={q.id} className="bg-white border border-slate-200 hover:border-[#1B2A6B]/30 rounded-2xl p-5 space-y-3 relative group shadow-sm text-slate-800 animate-fade-in">
-                      <div className="flex items-start justify-between gap-4 flex-wrap">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-[#1B2A6B] text-white">
-                            {q.subject?.name}
-                          </span>
-                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-[#FFD100] text-[#1B2A6B]">
-                            {q.assessmentType || "Exam"}
-                          </span>
-                          <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${
-                            q.questionType === "THEORY"
-                              ? "bg-purple-50 border-purple-250 text-purple-800"
-                              : "bg-blue-50 border-blue-250 text-blue-800"
-                          }`}>
-                            {q.questionType || "MCQ"}
-                          </span>
-                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200">
-                            {q.points || 1} pt(s)
-                          </span>
-                          <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${
-                            q.difficulty === "EASY"
-                              ? "bg-emerald-50 border-emerald-250 text-emerald-700"
-                              : q.difficulty === "HARD"
-                              ? "bg-red-50 border-red-250 text-red-700 font-extrabold"
-                              : "bg-blue-50 border-blue-250 text-blue-700"
-                          }`}>
-                            {q.difficulty || "MEDIUM"}
-                          </span>
-                          <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${
-                            q.status === "DRAFT"
-                              ? "bg-amber-50 border-amber-200 text-amber-700"
-                              : "bg-emerald-50 border-emerald-200 text-emerald-700"
-                          }`}>
-                            {q.status || "PUBLISHED"}
-                          </span>
-                          {q.tags && q.tags.split(",").map((tag: string, idx: number) => {
-                            const trimmed = tag.trim();
-                            if (!trimmed) return null;
-                            return (
-                              <span key={idx} className="text-[10px] bg-slate-100 text-slate-500 border border-slate-200 px-2 py-0.5 rounded font-medium">
-                                #{trimmed}
-                              </span>
-                            );
-                          })}
-                        </div>
-
-                        <div className="flex gap-2 opacity-80 md:opacity-0 group-hover:opacity-100 transition duration-200">
-                          <button
-                            onClick={() => router.push(`/teacher/questions/new?edit=${q.id}&classId=${selectedClassId}`)}
-                            className="p-1 text-slate-500 hover:text-[#1B2A6B] transition cursor-pointer"
-                            title="Edit Question"
-                          >
-                            <Edit className="w-4.5 h-4.5" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteQuestion(q.id)}
-                            className="p-1 text-slate-550 hover:text-red-650 transition cursor-pointer"
-                            title="Delete Question"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-
-                      {q.passageTitle && (
-                        <div className="bg-orange-500/5 border border-orange-500/10 rounded-xl p-3 text-xs text-orange-400 max-w-2xl">
-                          <p className="font-bold mb-1">From comprehension novel: {q.passageTitle}</p>
-                          <p className="line-clamp-2 text-slate-500 font-normal italic">"{q.passageText}"</p>
-                        </div>
-                      )}
-
-                      <MathRenderer text={q.questionText} isHtml={true} className="text-slate-800 font-semibold" />
-
-                      {q.imageUrl && (
-                        <div className="border border-zinc-800/80 rounded-xl overflow-hidden max-w-[200px]">
-                          <img src={q.imageUrl} alt="diagram" className="w-full h-auto" />
-                        </div>
-                      )}
-
-                      {/* Options checklist */}
-                      {q.questionType !== "THEORY" && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-2">
-                          {[
-                            { key: "A", label: q.optionA },
-                            { key: "B", label: q.optionB },
-                            { key: "C", label: q.optionC },
-                            { key: "D", label: q.optionD },
-                            ...(q.optionE ? [{ key: "E", label: q.optionE }] : []),
-                            ...(q.optionF ? [{ key: "F", label: q.optionF }] : []),
-                          ].map((opt) => (
-                            <div
-                              key={opt.key}
-                              className={`p-2.5 rounded-lg border text-xs flex items-center gap-2 ${
-                                q.correctOption === opt.key
-                                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 font-bold"
-                                  : "bg-zinc-950/40 border-zinc-850 text-slate-500"
-                              }`}
+                  groupedAssessments.map((panel) => {
+                    const panelKey = `${panel.subjectId}-${panel.assessmentType}`;
+                    const isExpanded = expandedPanels[panelKey] !== false; // Default to expanded
+                    return (
+                      <div key={panelKey} className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm hover:border-[#1B2A6B]/30 transition duration-200">
+                        {/* Panel Header */}
+                        <div
+                          onClick={() => setExpandedPanels({ ...expandedPanels, [panelKey]: !isExpanded })}
+                          className="flex items-center justify-between p-4 bg-slate-50 border-b border-slate-200 cursor-pointer select-none"
+                        >
+                          <div className="flex items-center gap-2">
+                            <ChevronDown className={`w-5 h-5 text-[#1B2A6B] transition-transform duration-250 ${isExpanded ? "" : "-rotate-90"}`} />
+                            <span className="font-bold text-[#1B2A6B] font-sans">
+                              {panel.subjectName} — {panel.assessmentType} ({panel.questions.length} Q)
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              onClick={() => {
+                                setSelectedPanelForEdit(panel);
+                                setModalType("edit-assessment");
+                              }}
+                              className="flex items-center gap-1 bg-[#1B2A6B] hover:bg-[#152052] text-white text-xs px-3 py-1.5 rounded-lg font-semibold transition cursor-pointer shadow-sm"
                             >
-                              <span className="w-5 h-5 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center flex-shrink-0 text-[10px] font-bold">
-                                {opt.key}
-                              </span>
-                              {opt.label ? (
-                                <MathRenderer text={opt.label} inline={true} isHtml={true} className={q.correctOption === opt.key ? "font-bold text-emerald-400" : "text-slate-500"} />
-                              ) : (
-                                <span className="text-slate-400 italic">Option content not provided</span>
-                              )}
-                            </div>
-                          ))}
+                              <Edit className="w-3.5 h-3.5" /> Edit
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedPanelForSchedule(panel);
+                                setModalType("schedule-assessment");
+                                setScheduleForm({
+                                  durationMinutes: "45",
+                                });
+                              }}
+                              className="flex items-center gap-1 bg-[#FFD100] hover:bg-[#FFD100]/90 text-[#1B2A6B] text-xs px-3 py-1.5 rounded-lg font-bold transition cursor-pointer shadow-sm"
+                            >
+                              <Calendar className="w-3.5 h-3.5" /> Schedule Assessment
+                            </button>
+                          </div>
                         </div>
-                      )}
-                    </div>
-                  ))
+
+                        {/* Collapsible Panel Content */}
+                        {isExpanded && (
+                          <div className="p-5 space-y-4 divide-y divide-slate-100 bg-white">
+                            {panel.questions.map((q, idx) => (
+                              <div key={q.id} className={`pt-4 ${idx === 0 ? "pt-0" : ""} space-y-3 relative group text-slate-800`}>
+                                <div className="flex items-start justify-between gap-4 flex-wrap">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-[#1B2A6B] text-white">
+                                      {q.subject?.name}
+                                    </span>
+                                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-[#FFD100] text-[#1B2A6B]">
+                                      {q.assessmentType || "Exam"}
+                                    </span>
+                                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${
+                                      q.questionType === "THEORY"
+                                        ? "bg-purple-50 border-purple-200 text-purple-800"
+                                        : "bg-blue-50 border-blue-205 text-blue-800"
+                                    }`}>
+                                      {q.questionType || "MCQ"}
+                                    </span>
+                                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200">
+                                      {q.points || 1} pt(s)
+                                    </span>
+                                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${
+                                      q.difficulty === "EASY"
+                                        ? "bg-emerald-50 border-emerald-250 text-emerald-700"
+                                        : q.difficulty === "HARD"
+                                        ? "bg-red-50 border-red-250 text-red-700 font-extrabold"
+                                        : "bg-blue-50 border-blue-250 text-blue-700"
+                                    }`}>
+                                      {q.difficulty || "MEDIUM"}
+                                    </span>
+                                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${
+                                      q.status === "DRAFT"
+                                        ? "bg-amber-50 border-amber-200 text-amber-700"
+                                        : "bg-emerald-50 border-emerald-200 text-emerald-700"
+                                    }`}>
+                                      {q.status || "PUBLISHED"}
+                                    </span>
+                                    {q.tags && q.tags.split(",").map((tag: string, tidx: number) => {
+                                      const trimmed = tag.trim();
+                                      if (!trimmed) return null;
+                                      return (
+                                        <span key={tidx} className="text-[10px] bg-slate-100 text-slate-500 border border-slate-200 px-2 py-0.5 rounded font-medium">
+                                          #{trimmed}
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
+
+                                  <div className="flex gap-2 opacity-80 md:opacity-0 group-hover:opacity-100 transition duration-200">
+                                    <button
+                                      onClick={() => router.push(`/teacher/questions/new?edit=${q.id}&classId=${selectedClassId}`)}
+                                      className="p-1 text-slate-550 hover:text-[#1B2A6B] transition cursor-pointer"
+                                      title="Edit Question"
+                                    >
+                                      <Edit className="w-4.5 h-4.5" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteQuestion(q.id)}
+                                      className="p-1 text-slate-550 hover:text-red-650 transition cursor-pointer"
+                                      title="Delete Question"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {q.passageTitle && (
+                                  <div className="bg-orange-500/5 border border-orange-500/10 rounded-xl p-3 text-xs text-orange-400 max-w-2xl">
+                                    <p className="font-bold mb-1">From comprehension novel: {q.passageTitle}</p>
+                                    <p className="line-clamp-2 text-slate-500 font-normal italic">"{q.passageText}"</p>
+                                  </div>
+                                )}
+
+                                <MathRenderer text={q.questionText} isHtml={true} className="text-slate-800 font-semibold" />
+
+                                {q.imageUrl && (
+                                  <div className="border border-slate-200 rounded-xl overflow-hidden max-w-[200px]">
+                                    <img src={q.imageUrl} alt="diagram" className="w-full h-auto" />
+                                  </div>
+                                )}
+
+                                {q.questionType !== "THEORY" && (
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-2">
+                                    {[
+                                      { key: "A", label: q.optionA },
+                                      { key: "B", label: q.optionB },
+                                      { key: "C", label: q.optionC },
+                                      { key: "D", label: q.optionD },
+                                      ...(q.optionE ? [{ key: "E", label: q.optionE }] : []),
+                                      ...(q.optionF ? [{ key: "F", label: q.optionF }] : []),
+                                    ].map((opt) => (
+                                      <div
+                                        key={opt.key}
+                                        className={`p-2.5 rounded-lg border text-xs flex items-center gap-2 ${
+                                          q.correctOption === opt.key
+                                            ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 font-bold"
+                                            : "bg-slate-50 border-slate-200 text-slate-500"
+                                        }`}
+                                      >
+                                        <span className="w-5 h-5 rounded-full bg-slate-100 border border-slate-250 flex items-center justify-center flex-shrink-0 text-[10px] font-bold">
+                                          {opt.key}
+                                        </span>
+                                        {opt.label ? (
+                                          <MathRenderer text={opt.label} inline={true} isHtml={true} className={q.correctOption === opt.key ? "font-bold text-emerald-600" : "text-slate-500"} />
+                                        ) : (
+                                          <span className="text-slate-400 italic">Option content not provided</span>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
                 )}
               </div>
             </div>
           )}
 
-          {/* TAB 3: SCHEDULED TESTS */}
-          {activeTab === "exams" && (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl font-bold">Test Schedules</h2>
-                  <p className="text-zinc-550 text-xs mt-0.5">Manage evaluation schedules for your classroom division.</p>
-                </div>
-                <button
-                  onClick={() => {
-                    setExamForm({
-                      title: "",
-                      date: "",
-                      durationMinutes: "45",
-                      status: "LIVE",
-                      subjects: [],
-                    });
-                    setModalType("exam");
-                  }}
-                  className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition cursor-pointer"
-                >
-                  <Plus className="w-4 h-4" /> Schedule Exam
-                </button>
-              </div>
 
-              <div className="bg-white border border-slate-200 shadow-sm rounded-2xl p-6 text-slate-800">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm text-left">
-                    <thead>
-                      <tr className="border-b border-slate-200 text-slate-400 font-bold uppercase tracking-wider text-xs">
-                        <th className="pb-3">Title</th>
-                        <th className="pb-3">Duration</th>
-                        <th className="pb-3">Exam Date</th>
-                        <th className="pb-3">Subject Blueprint</th>
-                        <th className="pb-3">Status</th>
-                        <th className="pb-3 text-center font-bold">Results</th>
-                        <th className="pb-3 text-right font-bold">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {exams.length === 0 ? (
-                        <tr>
-                          <td colSpan={7} className="py-4 text-center text-slate-400">No exams scheduled for your class yet.</td>
-                        </tr>
-                      ) : (
-                        exams.map((ex) => (
-                          <tr key={ex.id} className="border-b border-b border-slate-100 hover:bg-slate-50/50">
-                            <td className="py-3.5 font-bold text-slate-800 font-semibold">{ex.title}</td>
-                            <td className="py-3.5 text-slate-500">{ex.durationMinutes} mins</td>
-                            <td className="py-3.5 text-xs text-slate-400">
-                              {new Date(ex.startTime).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                            </td>
-                            <td className="py-3.5">
-                              <div className="flex flex-wrap gap-1">
-                                {ex.examSubjects?.map((es: any) => (
-                                  <span key={es.subjectId} className="text-[10px] bg-zinc-950 border border-zinc-850 px-2 py-0.5 rounded text-slate-500 font-semibold">
-                                    {es.subject?.name}: <span className="text-[#FFD100]">{es.numberOfQuestions} Qs</span>
-                                  </span>
-                                ))}
-                              </div>
-                            </td>
-                            <td className="py-3.5">
-                              <span
-                                className={`text-[10px] px-2 py-0.5 rounded border font-semibold ${
-                                  ex.status === "LIVE"
-                                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-                                    : "bg-blue-500/10 border-blue-500/30 text-blue-400"
-                                }`}
-                              >
-                                {ex.status === "LIVE" ? "OPEN" : "CLOSED"}
-                              </span>
-                            </td>
-                            <td className="py-3.5 text-center">
-                              <button
-                                onClick={() => handleToggleResultsVisibility(ex.id, ex.resultsReleased)}
-                                className={`px-3 py-1.5 rounded-full text-[10px] font-extrabold transition flex items-center gap-1.5 mx-auto cursor-pointer shadow-sm border ${
-                                  ex.resultsReleased
-                                    ? "bg-emerald-55 border-emerald-300 text-emerald-700"
-                                    : "bg-amber-55 border-amber-300 text-amber-700"
-                                }`}
-                              >
-                                {ex.resultsReleased ? (
-                                  <>
-                                    <Eye className="w-3.5 h-3.5" />
-                                    <span>Released</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <EyeOff className="w-3.5 h-3.5" />
-                                    <span>Hidden</span>
-                                  </>
-                                )}
-                              </button>
-                            </td>
-                            <td className="py-3.5 text-right space-x-1.5 flex items-center justify-end">
-                              <button
-                                onClick={() => setProctorExamId(ex.id)}
-                                className="p-1.5 hover:text-emerald-600 inline-block transition cursor-pointer text-slate-450"
-                                title="Live Proctoring / Monitor Students"
-                              >
-                                <Users className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setEditingExamId(ex.id);
-                                  setExamForm({
-                                    title: ex.title,
-                                    date: ex.startTime ? new Date(ex.startTime).toISOString().split("T")[0] : "",
-                                    durationMinutes: String(ex.durationMinutes),
-                                    status: ex.status === "CLOSED" ? "CLOSED" : "LIVE",
-                                    subjects: ex.examSubjects.map((es: any) => ({
-                                      subjectId: es.subjectId,
-                                      numberOfQuestions: String(es.numberOfQuestions),
-                                    })),
-                                  });
-                                  setModalType("exam");
-                                }}
-                                className="p-1.5 hover:text-[#1B2A6B] inline-block transition cursor-pointer"
-                                title="Edit Exam"
-                              >
-                                <Edit className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteExam(ex.id)}
-                                className="p-1.5 hover:text-[#FFD100] inline-block transition cursor-pointer"
-                                title="Delete Exam"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* TAB 4: CLASS RESULTS */}
           {activeTab === "results" && (
@@ -1469,237 +1500,416 @@ export default function TeacherDashboard() {
                   ? (editingExamId ? "Edit Examination Schedule" : "Schedule New Examination")
                   : modalType === "subject"
                   ? "Add Subject to Class"
+                  : modalType === "select-assessment-type"
+                  ? "Select Assessment Type"
+                  : modalType === "edit-assessment"
+                  ? "Edit Assessment Questions"
+                  : modalType === "schedule-assessment"
+                  ? "Schedule Assessment"
                   : `Add ${modalType}`}
               </h3>
             </div>
 
             {formError && (
-              <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs">
+              <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-medium">
                 {formError}
               </div>
             )}
 
-            <form
-              onSubmit={
-                modalType === "student"
-                  ? handleAddStudent
-                  : modalType === "subject"
-                  ? handleAddSubject
-                  : handleAddExam
-              }
-              className="p-6 space-y-4 max-h-[70vh] overflow-y-auto text-sm"
-            >
-              {/* Add Student Manual */}
-              {modalType === "student" && (
-                <>
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Student Name</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Chinedu Okafor"
-                      value={studentForm.name}
-                      onChange={(e) => setStudentForm({ ...studentForm, name: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 focus:border-[#1B2A6B] focus:ring-2 focus:ring-[#1B2A6B]/15 text-slate-850 rounded-lg p-2.5 outline-none transition"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Roll Number</label>
-                    <input
-                      type="number"
-                      required
-                      min={1}
-                      max={10000}
-                      placeholder="e.g. 101"
-                      value={studentForm.rollNumber}
-                      onChange={(e) => setStudentForm({ ...studentForm, rollNumber: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 focus:border-[#1B2A6B] focus:ring-2 focus:ring-[#1B2A6B]/15 text-slate-850 rounded-lg p-2.5 outline-none transition"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Passport Photograph</label>
-                    <div className="flex items-center gap-4 p-3 bg-slate-50 border border-slate-200 rounded-lg">
-                      <div className="w-14 h-14 rounded-full bg-slate-200 border border-slate-350 overflow-hidden flex-shrink-0 flex items-center justify-center">
-                        {studentForm.passportUrl ? (
-                          <img src={studentForm.passportUrl} alt="Passport Preview" className="w-full h-full object-cover" />
-                        ) : (
-                          <Users className="w-6 h-6 text-slate-400" />
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleUploadPassport}
-                          className="text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-[#1B2A6B] file:text-white hover:file:bg-[#152052] file:cursor-pointer cursor-pointer"
-                        />
-                        <p className="text-[10px] text-slate-400 mt-1">PNG, JPG or JPEG. Max size 2MB.</p>
+            {modalType === "select-assessment-type" || modalType === "edit-assessment" || modalType === "schedule-assessment" ? (
+              <div className="p-6">
+                {modalType === "select-assessment-type" && (
+                  <div className="space-y-4 text-slate-800">
+                    <p className="text-slate-500 text-xs">
+                      Choose the assessment category for this question. You can select one of the standard categories or create a custom one.
+                    </p>
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5 font-sans">Standard Types</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {["1st CA", "2nd CA", "Exam"].map((type) => (
+                          <div
+                            key={type}
+                            onClick={() => {
+                              setChosenAssessmentType(type);
+                              setCustomAssessmentType("");
+                            }}
+                            className={`p-3 rounded-xl border text-center font-bold text-xs cursor-pointer select-none transition ${
+                              chosenAssessmentType === type && !customAssessmentType
+                                ? "bg-[#1B2A6B] text-white border-[#1B2A6B]"
+                                : "bg-slate-50 text-slate-700 border-slate-200 hover:border-[#1B2A6B]/30"
+                            }`}
+                          >
+                            {type}
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  </div>
-                </>
-              )}
-
-              {/* Add Exam Form */}
-              {modalType === "exam" && (
-                <>
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Exam Session Title</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. Mathematics CA Test"
-                      value={examForm.title}
-                      onChange={(e) => setExamForm({ ...examForm, title: e.target.value })}
-                      className="w-full bg-zinc-950 border border-zinc-800 focus:border-red-500 text-white rounded-lg p-2.5 outline-none transition"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
+                    
                     <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Duration (Minutes)</label>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5 font-sans">Or Create Custom Type</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Mid-Term Test, Mock Exam"
+                        value={customAssessmentType}
+                        onChange={(e) => {
+                          setCustomAssessmentType(e.target.value);
+                          setChosenAssessmentType("");
+                        }}
+                        className="w-full bg-slate-50 border border-slate-200 focus:border-[#1B2A6B] focus:ring-2 focus:ring-[#1B2A6B]/15 text-slate-850 rounded-lg p-2.5 outline-none transition font-medium text-sm"
+                      />
+                    </div>
+
+                    <div className="border-t border-slate-100 pt-6 flex justify-end gap-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setModalType(null);
+                          setAssessmentPrompt(null);
+                        }}
+                        className="bg-white hover:bg-slate-50 text-slate-700 px-4 py-2 border border-slate-200 rounded-xl font-semibold transition cursor-pointer shadow-sm text-sm"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const finalType = customAssessmentType.trim() || chosenAssessmentType;
+                          if (!finalType) {
+                            alert("Please select or enter an assessment type");
+                            return;
+                          }
+                          setModalType(null);
+                          router.push(`/teacher/questions/new?subjectId=${assessmentPrompt?.subjectId}&classId=${selectedClassId}&type=${assessmentPrompt?.type}&assessmentType=${encodeURIComponent(finalType)}`);
+                          setAssessmentPrompt(null);
+                        }}
+                        className="bg-[#1B2A6B] hover:bg-[#152052] text-white px-5 py-2 rounded-xl font-semibold transition cursor-pointer shadow-sm border-b-2 border-b-[#FFD100] text-sm"
+                      >
+                        Proceed to Editor
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {modalType === "edit-assessment" && selectedPanelForEdit && (
+                  <div className="space-y-4 text-slate-800">
+                    <p className="text-slate-500 text-xs mb-3 font-medium">
+                      Modify, correct, or delete any question in this assessment category.
+                    </p>
+                    <div className="max-h-[40vh] overflow-y-auto space-y-3 pr-1">
+                      {editPanelQuestions.length === 0 ? (
+                        <p className="text-slate-400 text-center py-4 italic font-medium">No questions left in this assessment.</p>
+                      ) : (
+                        editPanelQuestions.map((q, idx) => (
+                          <div key={q.id} className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-start justify-between gap-3 text-slate-800 text-sm">
+                            <div className="flex-1 space-y-1">
+                              <p className="font-bold text-xs text-[#1B2A6B]">Question {idx + 1}</p>
+                              <p className="text-xs line-clamp-2">{q.questionText}</p>
+                            </div>
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                              <button
+                                onClick={() => {
+                                  setModalType(null);
+                                  router.push(`/teacher/questions/new?edit=${q.id}&classId=${selectedClassId}`);
+                                }}
+                                className="p-1 hover:text-[#1B2A6B] text-slate-550 transition cursor-pointer"
+                                title="Edit Question"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteQuestion(q.id)}
+                                className="p-1 hover:text-red-650 text-slate-550 transition cursor-pointer"
+                                title="Delete Question"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    <div className="border-t border-slate-100 pt-4 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setModalType(null);
+                          setSelectedPanelForEdit(null);
+                        }}
+                        className="bg-[#1B2A6B] hover:bg-[#152052] text-white px-5 py-2 rounded-xl font-semibold transition cursor-pointer shadow-sm border-b-2 border-b-[#FFD100] text-sm"
+                      >
+                        Done
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {modalType === "schedule-assessment" && selectedPanelForSchedule && (
+                  <form onSubmit={handlePublishAssessment} className="space-y-4 text-slate-800">
+                    <div className="bg-[#1B2A6B]/5 border border-[#1B2A6B]/15 rounded-xl p-4 space-y-1">
+                      <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400 font-sans">Target Assessment</p>
+                      <p className="text-sm font-bold text-[#1B2A6B] font-sans">{selectedPanelForSchedule.subjectName} — {selectedPanelForSchedule.assessmentType}</p>
+                      <p className="text-xs text-slate-500 font-medium">
+                        This will make all <strong className="text-slate-800">{selectedPanelForSchedule.questions.length}</strong> drafted questions in this panel available for students to attempt.
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5 font-sans">Exam Duration (Minutes)</label>
                       <input
                         type="number"
                         required
                         min="1"
-                        value={examForm.durationMinutes}
-                        onChange={(e) => setExamForm({ ...examForm, durationMinutes: e.target.value })}
+                        value={scheduleForm.durationMinutes}
+                        onChange={(e) => setScheduleForm({ ...scheduleForm, durationMinutes: e.target.value })}
+                        className="w-full bg-slate-50 border border-slate-200 focus:border-[#1B2A6B] focus:ring-2 focus:ring-[#1B2A6B]/15 text-slate-850 rounded-lg p-2.5 outline-none transition text-sm font-medium"
+                      />
+                    </div>
+
+                    <div className="border-t border-slate-100 pt-6 flex justify-end gap-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setModalType(null);
+                          setSelectedPanelForSchedule(null);
+                        }}
+                        className="bg-white hover:bg-slate-50 text-slate-700 px-4 py-2 border border-slate-200 rounded-xl font-semibold transition cursor-pointer shadow-sm text-sm"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={formSubmitting}
+                        className="bg-[#1B2A6B] hover:bg-[#152052] disabled:bg-slate-200 disabled:text-slate-400 text-white px-5 py-2 rounded-xl font-semibold transition cursor-pointer shadow-sm border-b-2 border-b-[#FFD100] text-sm"
+                      >
+                        {formSubmitting ? "Publishing..." : "Publish Now"}
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            ) : (
+              <form
+                onSubmit={
+                  modalType === "student"
+                    ? handleAddStudent
+                    : modalType === "subject"
+                    ? handleAddSubject
+                    : handleAddExam
+                }
+                className="p-6 space-y-4 max-h-[70vh] overflow-y-auto text-sm"
+              >
+                {/* Add Student Manual */}
+                {modalType === "student" && (
+                  <>
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Student Name</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Chinedu Okafor"
+                        value={studentForm.name}
+                        onChange={(e) => setStudentForm({ ...studentForm, name: e.target.value })}
+                        className="w-full bg-slate-50 border border-slate-200 focus:border-[#1B2A6B] focus:ring-2 focus:ring-[#1B2A6B]/15 text-slate-850 rounded-lg p-2.5 outline-none transition"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Roll Number</label>
+                      <input
+                        type="number"
+                        required
+                        min={1}
+                        max={10000}
+                        placeholder="e.g. 101"
+                        value={studentForm.rollNumber}
+                        onChange={(e) => setStudentForm({ ...studentForm, rollNumber: e.target.value })}
+                        className="w-full bg-slate-50 border border-slate-200 focus:border-[#1B2A6B] focus:ring-2 focus:ring-[#1B2A6B]/15 text-slate-850 rounded-lg p-2.5 outline-none transition"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Passport Photograph</label>
+                      <div className="flex items-center gap-4 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                        <div className="w-14 h-14 rounded-full bg-slate-200 border border-slate-350 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                          {studentForm.passportUrl ? (
+                            <img src={studentForm.passportUrl} alt="Passport Preview" className="w-full h-full object-cover" />
+                          ) : (
+                            <Users className="w-6 h-6 text-slate-400" />
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleUploadPassport}
+                            className="text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-[#1B2A6B] file:text-white hover:file:bg-[#152052] file:cursor-pointer cursor-pointer"
+                          />
+                          <p className="text-[10px] text-slate-400 mt-1">PNG, JPG or JPEG. Max size 2MB.</p>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* Add Exam Form */}
+                {modalType === "exam" && (
+                  <>
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Exam Session Title</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Mathematics CA Test"
+                        value={examForm.title}
+                        onChange={(e) => setExamForm({ ...examForm, title: e.target.value })}
                         className="w-full bg-zinc-950 border border-zinc-800 focus:border-red-500 text-white rounded-lg p-2.5 outline-none transition"
                       />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Duration (Minutes)</label>
+                        <input
+                          type="number"
+                          required
+                          min="1"
+                          value={examForm.durationMinutes}
+                          onChange={(e) => setExamForm({ ...examForm, durationMinutes: e.target.value })}
+                          className="w-full bg-zinc-950 border border-zinc-800 focus:border-red-500 text-white rounded-lg p-2.5 outline-none transition"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Status</label>
+                        <select
+                          value={examForm.status}
+                          onChange={(e) => setExamForm({ ...examForm, status: e.target.value })}
+                          className="w-full bg-zinc-950 border border-zinc-800 focus:border-red-500 text-white rounded-lg p-2.5 outline-none transition"
+                        >
+                          <option value="LIVE">Open</option>
+                          <option value="CLOSED">Close</option>
+                        </select>
+                      </div>
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Status</label>
-                      <select
-                        value={examForm.status}
-                        onChange={(e) => setExamForm({ ...examForm, status: e.target.value })}
-                        className="w-full bg-zinc-950 border border-zinc-800 focus:border-red-500 text-white rounded-lg p-2.5 outline-none transition"
-                      >
-                        <option value="LIVE">Open</option>
-                        <option value="CLOSED">Close</option>
-                      </select>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Exam Date</label>
+                      <div className="relative">
+                        <Calendar className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <input
+                          type="date"
+                          required
+                          value={examForm.date}
+                          onClick={(e) => {
+                            try {
+                              (e.target as any).showPicker();
+                            } catch (err) {}
+                          }}
+                          onChange={(e) => setExamForm({ ...examForm, date: e.target.value })}
+                          className="w-full bg-zinc-950 border border-zinc-800 focus:border-red-500 text-white text-xs rounded-lg p-2.5 pl-9 outline-none transition"
+                        />
+                      </div>
                     </div>
-                  </div>
 
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Exam Date</label>
-                    <div className="relative">
-                      <Calendar className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    {/* Subjects Configuration */}
+                    <div className="border-t border-zinc-800/80 pt-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">Questions per Subject</label>
+                        <button
+                          type="button"
+                          onClick={handleAddSubjectToExam}
+                          className="text-xs text-[#FFD100] hover:text-red-400 font-semibold flex items-center gap-1"
+                        >
+                          <Plus className="w-3.5 h-3.5" /> Connect Subject
+                        </button>
+                      </div>
+
+                      {examForm.subjects.length === 0 ? (
+                        <p className="text-zinc-650 text-xs italic py-2">Add subjects to load questions for this test.</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {examForm.subjects.map((sub, i) => (
+                            <div key={i} className="flex items-center gap-3 bg-zinc-950 p-2.5 rounded-lg border border-zinc-855">
+                              <div className="flex-1">
+                                <select
+                                  required
+                                  value={sub.subjectId}
+                                  onChange={(e) => handleUpdateExamSubject(i, "subjectId", e.target.value)}
+                                  className="w-full bg-zinc-900 border border-zinc-800 text-white text-xs rounded p-2"
+                                >
+                                  <option value="">Choose Subject</option>
+                                  {subjects.map((item) => (
+                                    <option key={item.id} value={item.id}>
+                                      {item.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="w-20">
+                                <input
+                                  type="number"
+                                  required
+                                  min="1"
+                                  placeholder="Qty"
+                                  value={sub.numberOfQuestions}
+                                  onChange={(e) => handleUpdateExamSubject(i, "numberOfQuestions", e.target.value)}
+                                  className="w-full bg-zinc-900 border border-zinc-800 text-white text-xs rounded p-2 text-center"
+                                />
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveSubjectFromExam(i)}
+                                className="text-slate-400 hover:text-[#FFD100] p-1"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {/* Add Subject Form */}
+                {modalType === "subject" && (
+                  <>
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Subject Name</label>
                       <input
-                        type="date"
+                        type="text"
                         required
-                        value={examForm.date}
-                        onClick={(e) => {
-                          try {
-                            (e.target as any).showPicker();
-                          } catch (err) {}
-                        }}
-                        onChange={(e) => setExamForm({ ...examForm, date: e.target.value })}
-                        className="w-full bg-zinc-950 border border-zinc-800 focus:border-red-500 text-white text-xs rounded-lg p-2.5 pl-9 outline-none transition"
+                        placeholder="e.g. Mathematics"
+                        value={subjectForm.name}
+                        onChange={(e) => setSubjectForm({ name: e.target.value })}
+                        className="w-full bg-slate-50 border border-slate-200 focus:border-[#1B2A6B] focus:ring-2 focus:ring-[#1B2A6B]/15 text-slate-800 text-sm rounded-lg p-2.5 outline-none transition"
                       />
                     </div>
-                  </div>
+                  </>
+                )}
 
-                  {/* Subjects Configuration */}
-                  <div className="border-t border-zinc-800/80 pt-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">Questions per Subject</label>
-                      <button
-                        type="button"
-                        onClick={handleAddSubjectToExam}
-                        className="text-xs text-[#FFD100] hover:text-red-400 font-semibold flex items-center gap-1"
-                      >
-                        <Plus className="w-3.5 h-3.5" /> Connect Subject
-                      </button>
-                    </div>
-
-                    {examForm.subjects.length === 0 ? (
-                      <p className="text-zinc-650 text-xs italic py-2">Add subjects to load questions for this test.</p>
-                    ) : (
-                      <div className="space-y-2">
-                        {examForm.subjects.map((sub, i) => (
-                          <div key={i} className="flex items-center gap-3 bg-zinc-950 p-2.5 rounded-lg border border-zinc-855">
-                            <div className="flex-1">
-                              <select
-                                required
-                                value={sub.subjectId}
-                                onChange={(e) => handleUpdateExamSubject(i, "subjectId", e.target.value)}
-                                className="w-full bg-zinc-900 border border-zinc-800 text-white text-xs rounded p-2"
-                              >
-                                <option value="">Choose Subject</option>
-                                {subjects.map((item) => (
-                                  <option key={item.id} value={item.id}>
-                                    {item.name}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                            <div className="w-20">
-                              <input
-                                type="number"
-                                required
-                                min="1"
-                                placeholder="Qty"
-                                value={sub.numberOfQuestions}
-                                onChange={(e) => handleUpdateExamSubject(i, "numberOfQuestions", e.target.value)}
-                                className="w-full bg-zinc-900 border border-zinc-800 text-white text-xs rounded p-2 text-center"
-                              />
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveSubjectFromExam(i)}
-                              className="text-slate-400 hover:text-[#FFD100] p-1"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-
-              {/* Add Subject Form */}
-              {modalType === "subject" && (
-                <>
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Subject Name</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. Mathematics"
-                      value={subjectForm.name}
-                      onChange={(e) => setSubjectForm({ name: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 focus:border-[#1B2A6B] focus:ring-2 focus:ring-[#1B2A6B]/15 text-slate-800 text-sm rounded-lg p-2.5 outline-none transition"
-                    />
-                  </div>
-                </>
-              )}
-
-              {/* Form Actions */}
-              <div className="border-t border-slate-100 pt-6 flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setModalType(null);
-                    setEditingQuestion(null);
-                    setEditingExamId(null);
-                    setSubjectForm({ name: "" });
-                  }}
-                  className="bg-white hover:bg-slate-50 text-slate-700 px-4 py-2 border border-slate-200 rounded-xl font-semibold transition cursor-pointer shadow-sm"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={formSubmitting}
-                  className="bg-[#1B2A6B] hover:bg-[#152052] disabled:bg-slate-200 disabled:text-slate-400 text-white px-5 py-2 rounded-xl font-semibold transition cursor-pointer shadow-sm border-b-2 border-b-[#FFD100]"
-                >
-                  {formSubmitting ? "Saving..." : "Save Record"}
-                </button>
-              </div>
-            </form>
+                {/* Form Actions */}
+                <div className="border-t border-slate-100 pt-6 flex justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModalType(null);
+                      setEditingQuestion(null);
+                      setEditingExamId(null);
+                      setSubjectForm({ name: "" });
+                    }}
+                    className="bg-white hover:bg-slate-50 text-slate-700 px-4 py-2 border border-slate-200 rounded-xl font-semibold transition cursor-pointer shadow-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={formSubmitting}
+                    className="bg-[#1B2A6B] hover:bg-[#152052] disabled:bg-slate-200 disabled:text-slate-400 text-white px-5 py-2 rounded-xl font-semibold transition cursor-pointer shadow-sm border-b-2 border-b-[#FFD100]"
+                  >
+                    {formSubmitting ? "Saving..." : "Save Record"}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}
