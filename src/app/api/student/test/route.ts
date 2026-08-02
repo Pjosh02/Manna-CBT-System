@@ -125,6 +125,11 @@ export async function GET(request: NextRequest) {
 
       // Slice the required number of questions
       const selectedQuestions = shuffled.slice(0, es.numberOfQuestions);
+      selectedQuestions.sort((a, b) => {
+        if (a.questionType === "THEORY" && b.questionType !== "THEORY") return 1;
+        if (a.questionType !== "THEORY" && b.questionType === "THEORY") return -1;
+        return 0;
+      });
 
       subjectsData.push({
         subjectId: es.subjectId,

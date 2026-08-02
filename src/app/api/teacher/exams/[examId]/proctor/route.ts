@@ -216,6 +216,11 @@ export async function POST(
             .map((item) => item.q);
 
           const assignedQuestions = shuffled.slice(0, es.numberOfQuestions);
+          assignedQuestions.sort((a, b) => {
+            if (a.questionType === "THEORY" && b.questionType !== "THEORY") return 1;
+            if (a.questionType !== "THEORY" && b.questionType === "THEORY") return -1;
+            return 0;
+          });
           totalAssignedQuestions += assignedQuestions.length;
 
           const mcqQuestions = assignedQuestions.filter((q) => q.questionType !== "THEORY");
