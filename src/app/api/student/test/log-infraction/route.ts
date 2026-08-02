@@ -70,6 +70,7 @@ export async function POST(request: NextRequest) {
 
         if (exam) {
           let totalQuestionsCount = 0;
+          let totalAssignedQuestions = 0;
           let correctAnswersCount = 0;
           let firstAssignedQuestionType: string | null = null;
 
@@ -105,13 +106,16 @@ export async function POST(request: NextRequest) {
               .map((item) => item.q);
 
             const assignedQuestions = shuffled.slice(0, es.numberOfQuestions);
-            totalQuestionsCount += assignedQuestions.length;
+            totalAssignedQuestions += assignedQuestions.length;
+
+            const mcqQuestions = assignedQuestions.filter((q) => q.questionType !== "THEORY");
+            totalQuestionsCount += mcqQuestions.length;
 
             if (assignedQuestions.length > 0 && !firstAssignedQuestionType) {
               firstAssignedQuestionType = assignedQuestions[0].assessmentType;
             }
 
-            assignedQuestions.forEach((q) => {
+            mcqQuestions.forEach((q) => {
               const studentSelect = attemptsMap[q.id];
               if (studentSelect && studentSelect.toUpperCase() === q.correctOption.toUpperCase()) {
                 correctAnswersCount += 1;
@@ -119,8 +123,8 @@ export async function POST(request: NextRequest) {
             });
           }
 
-          if (totalQuestionsCount > 0) {
-            const score = Math.round((correctAnswersCount / totalQuestionsCount) * 10000) / 100;
+          if (totalAssignedQuestions > 0) {
+            const score = totalQuestionsCount > 0 ? Math.round((correctAnswersCount / totalQuestionsCount) * 10000) / 100 : 0;
             // Create Result record
             await prisma.result.create({
               data: {

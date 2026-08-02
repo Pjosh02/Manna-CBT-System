@@ -273,6 +273,16 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
   const activeQuestion = activeSubject?.questions?.[activeQuestionIndex];
   const activeAttempt = activeQuestion ? attempts[activeQuestion.id] || { selectedOption: null, isFlagged: false } : { selectedOption: null, isFlagged: false };
 
+  const mcqQuestions = activeSubject?.questions?.filter((q: any) => q.questionType !== "THEORY") || [];
+  const theoryQuestions = activeSubject?.questions?.filter((q: any) => q.questionType === "THEORY") || [];
+
+  const activeQuestionMcqIndex = activeQuestion ? mcqQuestions.findIndex((q: any) => q.id === activeQuestion.id) : -1;
+  const activeQuestionTheoryIndex = activeQuestion ? theoryQuestions.findIndex((q: any) => q.id === activeQuestion.id) : -1;
+
+  const visualQuestionLabel = activeQuestion?.questionType === "THEORY"
+    ? `T ${activeQuestionTheoryIndex + 1}`
+    : `Q ${activeQuestionMcqIndex + 1}`;
+
   // Save attempts to database (autosave)
   const saveAttempt = async (qId: string, subId: string, option: string | null, flag: boolean) => {
     // Update local state first
@@ -698,8 +708,8 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
               {/* Question Item */}
               <div className="space-y-4 max-w-4xl">
                 <div className="flex items-start gap-4">
-                  <span className="w-9 h-9 bg-[#1B2A6B] text-white font-bold rounded-xl flex items-center justify-center flex-shrink-0 text-sm shadow-sm">
-                    {activeQuestionIndex + 1}
+                  <span className="px-3 h-9 bg-[#1B2A6B] text-white font-bold rounded-xl flex items-center justify-center flex-shrink-0 text-sm shadow-sm">
+                    {visualQuestionLabel}
                   </span>
                   <div className="text-base md:text-lg font-bold leading-relaxed text-slate-900 pt-1">
                     {activeQuestion?.questionText ? (
@@ -864,40 +874,80 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
           </div>
 
           {/* Sticky Bottom Question Palette */}
-          <div className="border-t border-slate-200 bg-white p-5 space-y-3.5 shadow-inner">
-            <div className="flex items-center justify-between text-xs font-bold text-slate-450">
+          <div className="border-t border-slate-200 bg-white p-5 space-y-4 shadow-inner">
+            <div className="flex items-center justify-between text-xs font-bold text-slate-455 border-b border-slate-100 pb-2">
               <span className="uppercase tracking-wider">Question Navigator Palette</span>
               <span>
                 Attempted {getSubjectQuestionsAttempted(activeSubject)} of {activeSubject?.questions?.length} Questions
               </span>
             </div>
 
-            {/* Grid layout */}
-            <div className="flex flex-wrap gap-2">
-              {activeSubject?.questions?.map((q: any, idx: number) => {
-                const isCurrent = activeQuestionIndex === idx;
-                const isAttempted = !!attempts[q.id]?.selectedOption;
-                const isFlagged = !!attempts[q.id]?.isFlagged;
+            {/* MCQ Questions section */}
+            {mcqQuestions.length > 0 && (
+              <div className="space-y-2">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
+                  Multiple Choice Questions ({mcqQuestions.length})
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {mcqQuestions.map((q: any, mcqIdx: number) => {
+                    const idx = activeSubject.questions.findIndex((x: any) => x.id === q.id);
+                    const isCurrent = activeQuestionIndex === idx;
+                    const isAttempted = !!attempts[q.id]?.selectedOption;
+                    const isFlagged = !!attempts[q.id]?.isFlagged;
 
-                return (
-                  <button
-                    key={q.id}
-                    onClick={() => setActiveQuestionIndex(idx)}
-                    className={`w-9 h-9 text-xs font-bold rounded-xl flex items-center justify-center transition border cursor-pointer ${
-                      isCurrent
-                        ? "border-[#1B2A6B] bg-blue-50 text-[#1B2A6B] font-extrabold shadow-sm ring-2 ring-[#1B2A6B]/20"
-                        : isFlagged
-                        ? "border-amber-300 bg-amber-50 text-amber-700"
-                        : isAttempted
-                        ? "border-blue-200 bg-blue-50/50 text-[#1B2A6B]"
-                        : "border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
-                    }`}
-                  >
-                    {idx + 1}
-                  </button>
-                );
-              })}
-            </div>
+                    return (
+                      <button
+                        key={q.id}
+                        onClick={() => setActiveQuestionIndex(idx)}
+                        className={`w-14 h-9 text-xs font-bold rounded-xl flex items-center justify-center transition border cursor-pointer ${
+                          isCurrent
+                            ? "border-[#1B2A6B] bg-blue-50 text-[#1B2A6B] font-extrabold shadow-sm ring-2 ring-[#1B2A6B]/20"
+                            : isFlagged
+                            ? "border-amber-300 bg-amber-50 text-amber-700"
+                            : isAttempted
+                            ? "border-blue-200 bg-blue-50/50 text-[#1B2A6B]"
+                            : "border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                        }`}
+                      >
+                        Q {mcqIdx + 1}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Theory Questions section */}
+            {theoryQuestions.length > 0 && (
+              <div className="space-y-2 pt-3 border-t border-slate-100">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
+                  Theory Questions ({theoryQuestions.length})
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {theoryQuestions.map((q: any, theoryIdx: number) => {
+                    const idx = activeSubject.questions.findIndex((x: any) => x.id === q.id);
+                    const isCurrent = activeQuestionIndex === idx;
+                    const isFlagged = !!attempts[q.id]?.isFlagged;
+
+                    return (
+                      <button
+                        key={q.id}
+                        onClick={() => setActiveQuestionIndex(idx)}
+                        className={`w-14 h-9 text-xs font-bold rounded-xl flex items-center justify-center transition border cursor-pointer ${
+                          isCurrent
+                            ? "border-[#1B2A6B] bg-blue-50 text-[#1B2A6B] font-extrabold shadow-sm ring-2 ring-[#1B2A6B]/20"
+                            : isFlagged
+                            ? "border-amber-300 bg-amber-50 text-amber-700"
+                            : "border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                        }`}
+                      >
+                        T {theoryIdx + 1}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </main>
       </div>
