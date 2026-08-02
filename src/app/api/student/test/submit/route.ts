@@ -155,6 +155,28 @@ export async function POST(request: NextRequest) {
 
     if (caField && totalQuestionsCount > 0) {
       const scaledScore = Math.round((correctAnswersCount / totalQuestionsCount) * maxScore * 100) / 100;
+      
+      // Update subject-specific scores
+      for (const es of exam.examSubjects) {
+        await prisma.subjectScore.upsert({
+          where: {
+            studentId_subjectId: {
+              studentId: studentId,
+              subjectId: es.subjectId,
+            }
+          },
+          update: {
+            [caField]: scaledScore,
+          },
+          create: {
+            studentId: studentId,
+            subjectId: es.subjectId,
+            [caField]: scaledScore,
+          }
+        });
+      }
+
+      // Legacy fallback update on User model
       await prisma.user.update({
         where: { id: studentId },
         data: {

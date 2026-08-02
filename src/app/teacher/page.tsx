@@ -61,6 +61,7 @@ export default function TeacherDashboard() {
   });
   const [editingExamId, setEditingExamId] = useState<string | null>(null);
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
+  const [selectedCaSubjectId, setSelectedCaSubjectId] = useState<string | null>(null);
 
   const [caScores, setCaScores] = useState<Record<string, { firstCA: string; secondCA: string; examScore: string }>>({});
 
@@ -173,16 +174,23 @@ export default function TeacherDashboard() {
   };
 
   useEffect(() => {
+    if (subjects.length > 0 && !selectedCaSubjectId) {
+      setSelectedCaSubjectId(subjects[0].id);
+    }
+  }, [subjects, selectedCaSubjectId]);
+
+  useEffect(() => {
     const initialScores: Record<string, { firstCA: string; secondCA: string; examScore: string }> = {};
     students.forEach((s) => {
+      const subScore = s.subjectScores?.find((sc: any) => sc.subjectId === selectedCaSubjectId);
       initialScores[s.id] = {
-        firstCA: s.firstCA?.toString() || "",
-        secondCA: s.secondCA?.toString() || "",
-        examScore: s.examScore?.toString() || "",
+        firstCA: subScore?.firstCA?.toString() || "",
+        secondCA: subScore?.secondCA?.toString() || "",
+        examScore: subScore?.examScore?.toString() || "",
       };
     });
     setCaScores(initialScores);
-  }, [students]);
+  }, [students, selectedCaSubjectId]);
 
   const handleCaChange = (studentId: string, field: 'firstCA' | 'secondCA' | 'examScore', value: string) => {
     setCaScores((prev) => ({
@@ -207,6 +215,7 @@ export default function TeacherDashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: studentId,
+          subjectId: selectedCaSubjectId,
           firstCA: scores.firstCA === "" ? null : parseFloat(scores.firstCA),
           secondCA: scores.secondCA === "" ? null : parseFloat(scores.secondCA),
           examScore: scores.examScore === "" ? null : parseFloat(scores.examScore),
@@ -216,9 +225,7 @@ export default function TeacherDashboard() {
       if (!res.ok) throw new Error(data.error || "Failed to update CA scores");
       
       setFormSuccess("CA scores updated successfully!");
-      setStudents((prev) =>
-        prev.map((s) => (s.id === studentId ? { ...s, firstCA: data.student.firstCA, secondCA: data.student.secondCA, examScore: data.student.examScore } : s))
-      );
+      fetchClassData(selectedClassId);
     } catch (err: any) {
       setFormError(err.message);
     } finally {
@@ -229,6 +236,7 @@ export default function TeacherDashboard() {
   const handleSaveAllCA = async () => {
     const payload = Object.entries(caScores).map(([id, scores]) => ({
       id,
+      subjectId: selectedCaSubjectId,
       firstCA: scores.firstCA === "" ? null : parseFloat(scores.firstCA),
       secondCA: scores.secondCA === "" ? null : parseFloat(scores.secondCA),
       examScore: scores.examScore === "" ? null : parseFloat(scores.examScore),
@@ -1284,19 +1292,37 @@ export default function TeacherDashboard() {
           {/* TAB: CA & EXAM SCORES */}
           {activeTab === "ca" && (
             <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-slate-50 border border-slate-200 rounded-2xl p-5 shadow-sm">
                 <div>
-                  <h2 className="text-xl font-bold">Continuous Assessment & Exam Scores</h2>
-                  <p className="text-slate-400 text-xs mt-0.5">Record and persist academic CA and final exam scores.</p>
+                  <h2 className="text-xl font-bold text-[#1B2A6B]">Continuous Assessment & Exam Scores</h2>
+                  <p className="text-slate-500 text-xs mt-1 font-medium">Record and persist academic CA and final exam scores.</p>
                 </div>
-                <button
-                  onClick={handleSaveAllCA}
-                  disabled={formSubmitting}
-                  className="flex items-center gap-2 bg-[#FFD100] hover:bg-[#FFD100]/90 text-[#1B2A6B] px-4 py-2.5 rounded-xl text-sm font-bold transition cursor-pointer shadow-sm disabled:opacity-50"
-                >
-                  <FileSpreadsheet className="w-4.5 h-4.5" />
-                  <span>{formSubmitting ? "Saving..." : "Save All Scores"}</span>
-                </button>
+                <div className="flex flex-wrap items-center gap-3">
+                  {subjects.length > 0 && (
+                    <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-1.5 shadow-sm">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase">Subject:</label>
+                      <select
+                        value={selectedCaSubjectId || ""}
+                        onChange={(e) => setSelectedCaSubjectId(e.target.value)}
+                        className="bg-transparent text-slate-800 text-xs outline-none cursor-pointer font-bold"
+                      >
+                        {subjects.map((sub) => (
+                          <option key={sub.id} value={sub.id}>
+                            {sub.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  <button
+                    onClick={handleSaveAllCA}
+                    disabled={formSubmitting || !selectedCaSubjectId}
+                    className="flex items-center gap-2 bg-[#FFD100] hover:bg-[#FFD100]/90 text-[#1B2A6B] px-4 py-2.5 rounded-xl text-sm font-bold transition cursor-pointer shadow-sm disabled:opacity-50"
+                  >
+                    <FileSpreadsheet className="w-4.5 h-4.5" />
+                    <span>{formSubmitting ? "Saving..." : "Save All Scores"}</span>
+                  </button>
+                </div>
               </div>
 
               {(formSuccess || formError) && (
@@ -1387,7 +1413,7 @@ export default function TeacherDashboard() {
                               <td className="py-3.5 text-right">
                                 <button
                                   onClick={() => handleSaveSingleCA(stud.id)}
-                                  disabled={formSubmitting}
+                                  disabled={formSubmitting || !selectedCaSubjectId}
                                   className="px-3.5 py-1.5 text-xs font-bold bg-[#1B2A6B] hover:bg-[#152052] text-white rounded-lg transition border border-transparent shadow-sm cursor-pointer disabled:opacity-50"
                                 >
                                   Save Row

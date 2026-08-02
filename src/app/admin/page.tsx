@@ -79,6 +79,7 @@ export default function AdminDashboard() {
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [formSuccess, setFormSuccess] = useState("");
   const [selectedClassId, setSelectedClassId] = useState<string>("");
+  const [selectedCaSubjectId, setSelectedCaSubjectId] = useState<string | null>(null);
   const [caScores, setCaScores] = useState<Record<string, { firstCA: string; secondCA: string; examScore: string }>>({});
 
   useEffect(() => {
@@ -88,16 +89,26 @@ export default function AdminDashboard() {
   }, [classes]);
 
   useEffect(() => {
+    const classSubs = subjects.filter((s) => s.classes?.some((c: any) => c.id === selectedClassId) || s.classId === selectedClassId);
+    if (classSubs.length > 0) {
+      setSelectedCaSubjectId(classSubs[0].id);
+    } else {
+      setSelectedCaSubjectId(null);
+    }
+  }, [selectedClassId, subjects]);
+
+  useEffect(() => {
     const initialScores: Record<string, { firstCA: string; secondCA: string; examScore: string }> = {};
     students.forEach((s) => {
+      const subScore = s.subjectScores?.find((sc: any) => sc.subjectId === selectedCaSubjectId);
       initialScores[s.id] = {
-        firstCA: s.firstCA?.toString() || "",
-        secondCA: s.secondCA?.toString() || "",
-        examScore: s.examScore?.toString() || "",
+        firstCA: subScore?.firstCA?.toString() || "",
+        secondCA: subScore?.secondCA?.toString() || "",
+        examScore: subScore?.examScore?.toString() || "",
       };
     });
     setCaScores(initialScores);
-  }, [students]);
+  }, [students, selectedCaSubjectId]);
 
   const handleCaChange = (studentId: string, field: 'firstCA' | 'secondCA' | 'examScore', value: string) => {
     setCaScores((prev) => ({
@@ -122,6 +133,7 @@ export default function AdminDashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: studentId,
+          subjectId: selectedCaSubjectId,
           firstCA: scores.firstCA === "" ? null : parseFloat(scores.firstCA),
           secondCA: scores.secondCA === "" ? null : parseFloat(scores.secondCA),
           examScore: scores.examScore === "" ? null : parseFloat(scores.examScore),
@@ -131,9 +143,7 @@ export default function AdminDashboard() {
       if (!res.ok) throw new Error(data.error || "Failed to update CA scores");
       
       setFormSuccess("CA scores updated successfully!");
-      setStudents((prev) =>
-        prev.map((s) => (s.id === studentId ? { ...s, firstCA: data.student.firstCA, secondCA: data.student.secondCA, examScore: data.student.examScore } : s))
-      );
+      fetchData();
     } catch (err: any) {
       setFormError(err.message);
     } finally {
@@ -147,6 +157,7 @@ export default function AdminDashboard() {
       const scores = caScores[s.id] || { firstCA: "", secondCA: "", examScore: "" };
       return {
         id: s.id,
+        subjectId: selectedCaSubjectId,
         firstCA: scores.firstCA === "" ? null : parseFloat(scores.firstCA),
         secondCA: scores.secondCA === "" ? null : parseFloat(scores.secondCA),
         examScore: scores.examScore === "" ? null : parseFloat(scores.examScore),
@@ -1188,9 +1199,24 @@ export default function AdminDashboard() {
                       </option>
                     ))}
                   </select>
+                  <select
+                    value={selectedCaSubjectId || ""}
+                    onChange={(e) => setSelectedCaSubjectId(e.target.value)}
+                    className="bg-slate-50 border border-slate-200 text-slate-800 text-xs rounded-xl p-2.5 outline-none cursor-pointer focus:ring-1 focus:ring-[#1B2A6B]"
+                    disabled={!selectedClassId}
+                  >
+                    <option value="">Select Subject</option>
+                    {subjects
+                      .filter((s) => s.classes?.some((c: any) => c.id === selectedClassId) || s.classId === selectedClassId)
+                      .map((sub) => (
+                        <option key={sub.id} value={sub.id}>
+                          {sub.name}
+                        </option>
+                      ))}
+                  </select>
                   <button
                     onClick={handleSaveAllCA}
-                    disabled={formSubmitting || !selectedClassId}
+                    disabled={formSubmitting || !selectedClassId || !selectedCaSubjectId}
                     className="flex items-center gap-2 bg-[#FFD100] hover:bg-[#FFD100]/90 text-[#1B2A6B] px-4 py-2.5 rounded-xl text-sm font-bold transition cursor-pointer shadow-sm disabled:opacity-50"
                   >
                     <FileSpreadsheet className="w-4 h-4" />
@@ -1293,7 +1319,7 @@ export default function AdminDashboard() {
                                 <td className="py-3.5 text-right">
                                   <button
                                     onClick={() => handleSaveSingleCA(stud.id)}
-                                    disabled={formSubmitting}
+                                    disabled={formSubmitting || !selectedCaSubjectId}
                                     className="px-3.5 py-1.5 text-xs font-bold bg-[#1B2A6B] hover:bg-[#152052] text-white rounded-lg transition border border-transparent shadow-sm cursor-pointer disabled:opacity-50"
                                   >
                                     Save Row

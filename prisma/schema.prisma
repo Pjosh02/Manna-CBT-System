@@ -33,6 +33,7 @@ model User {
   classes      Class[]          @relation("TeacherClasses")
   subjectsCreated Subject[]      @relation("TeacherSubjects")
   examSessions    ExamSession[]
+  subjectScores   SubjectScore[]
 }
 
 model Class {
@@ -61,6 +62,7 @@ model Subject {
   questions    Question[]
   examSubjects ExamSubject[]
   attempts     StudentAttempt[]
+  subjectScores SubjectScore[]
 }
 
 model Question {
@@ -183,4 +185,19 @@ model ExamSession {
   userAgent      String?
 
   @@unique([examId, studentId])
+}
+
+model SubjectScore {
+  id        String   @id @default(uuid())
+  studentId String
+  student   User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subjectId String
+  subject   Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  firstCA   Float?
+  secondCA  Float?
+  examScore Float?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([studentId, subjectId])
 }

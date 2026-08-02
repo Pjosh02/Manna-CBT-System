@@ -33,6 +33,9 @@ export async function GET(request: NextRequest) {
         role: "STUDENT",
         classId: classId,
       },
+      include: {
+        subjectScores: true,
+      },
       orderBy: { name: "asc" },
     });
 

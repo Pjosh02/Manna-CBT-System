@@ -13,7 +13,7 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json();
 
     const updateCA = async (item: any) => {
-      const { id, firstCA, secondCA, examScore } = item;
+      const { id, subjectId, firstCA, secondCA, examScore } = item;
       if (!id) throw new Error("Student ID is required");
 
       const data: any = {};
@@ -36,10 +36,27 @@ export async function PATCH(request: NextRequest) {
         }
       }
 
-      return await prisma.user.update({
-        where: { id },
-        data,
-      });
+      if (subjectId) {
+        return await prisma.subjectScore.upsert({
+          where: {
+            studentId_subjectId: {
+              studentId: id,
+              subjectId: subjectId,
+            }
+          },
+          update: data,
+          create: {
+            studentId: id,
+            subjectId: subjectId,
+            ...data,
+          }
+        });
+      } else {
+        return await prisma.user.update({
+          where: { id },
+          data,
+        });
+      }
     };
 
     if (Array.isArray(body)) {

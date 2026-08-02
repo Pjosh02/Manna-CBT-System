@@ -11,6 +11,7 @@ export async function GET() {
       orderBy: { name: "asc" },
       include: {
         class: true,
+        subjectScores: true,
       },
     });
     return NextResponse.json({ students });
