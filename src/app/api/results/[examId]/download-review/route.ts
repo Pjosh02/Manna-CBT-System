@@ -5,6 +5,7 @@ import puppeteer from "puppeteer-core";
 import fs from "fs";
 import path from "path";
 import katex from "katex";
+import { execSync } from "child_process";
 
 // Simple hash function for deterministic question sorting
 function hashString(str: string): number {
@@ -601,13 +602,55 @@ export async function GET(
 `;
 
     // 8. Launch local browser and convert HTML to A4 PDF
-    let executablePath = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
-    if (!fs.existsSync(executablePath)) {
-      executablePath = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
+    let executablePath = "";
+    if (process.platform === "win32") {
+      const windowsPaths = [
+        "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+        "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+        "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+      ];
+      for (const p of windowsPaths) {
+        if (fs.existsSync(p)) {
+          executablePath = p;
+          break;
+        }
+      }
+    } else {
+      // Linux/macOS
+      const executables = ["chromium", "google-chrome", "google-chrome-stable", "chromium-browser"];
+      for (const exe of executables) {
+        try {
+          const resolvedPath = execSync(`which ${exe}`, { stdio: "pipe" }).toString().trim();
+          if (resolvedPath && fs.existsSync(resolvedPath)) {
+            executablePath = resolvedPath;
+            break;
+          }
+        } catch (e) {
+          // command failed or not found
+        }
+      }
+
+      // Fallbacks if which fails
+      if (!executablePath) {
+        const fallbacks = [
+          "/usr/bin/chromium",
+          "/usr/bin/chromium-browser",
+          "/usr/bin/google-chrome",
+          "/usr/bin/google-chrome-stable",
+          "/snap/bin/chromium",
+          "/usr/bin/chrome"
+        ];
+        for (const p of fallbacks) {
+          if (fs.existsSync(p)) {
+            executablePath = p;
+            break;
+          }
+        }
+      }
     }
 
-    if (!fs.existsSync(executablePath)) {
-      console.error("No suitable Edge or Chrome executable found on host.");
+    if (!executablePath) {
+      console.error("No suitable Edge, Chrome, or Chromium executable found on host.");
       return NextResponse.json({ error: "System browser environment missing" }, { status: 500 });
     }
 
