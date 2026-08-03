@@ -275,6 +275,13 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
 
   const mcqQuestions = activeSubject?.questions?.filter((q: any) => q.questionType !== "THEORY") || [];
   const theoryQuestions = activeSubject?.questions?.filter((q: any) => q.questionType === "THEORY") || [];
+  const theoryInstructions = Array.from(
+    new Set(
+      theoryQuestions
+        .map((q: any) => q.instruction)
+        .filter((ins: any) => ins && ins.trim() !== "")
+    )
+  );
 
   const activeQuestionMcqIndex = activeQuestion ? mcqQuestions.findIndex((q: any) => q.id === activeQuestion.id) : -1;
   const activeQuestionTheoryIndex = activeQuestion ? theoryQuestions.findIndex((q: any) => q.id === activeQuestion.id) : -1;
@@ -374,6 +381,7 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
   // Question Palette Calculations
   const getSubjectQuestionsAttempted = (sub: any) => {
     return sub.questions.filter((q: any) => {
+      if (q.questionType === "THEORY") return false;
       const option = attempts[q.id]?.selectedOption;
       return option && option.trim() !== "";
     }).length;
@@ -390,7 +398,7 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
   const getTotalQuestionsCount = () => {
     let count = 0;
     subjects.forEach((sub) => {
-      count += sub.questions.length;
+      count += sub.questions.filter((q: any) => q.questionType !== "THEORY").length;
     });
     return count;
   };
@@ -465,7 +473,8 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
             <p>• ⏱️ **Duration**: You have **{exam?.durationMinutes} minutes** to complete the exam.</p>
             <p>• 💻 **Fullscreen**: Fullscreen mode is enforced. Exiting fullscreen is monitored.</p>
             <p>• 🚫 **Tab Switching**: Tab switching, minimizing, or opening other applications is **forbidden** and logged. Exceeding **3 warnings** results in auto-submission.</p>
-            <p>• 💾 **Autosave**: Answers are saved automatically after selection.</p>
+            <p>• 💾 **Autosave**: MCQ answers are saved automatically after selection.</p>
+            <p>• 📝 **Theory Questions**: Answers to Theory questions must be written on the physical paper sheet provided. Only multiple-choice questions are answered and graded on the computer.</p>
           </div>
 
           <button
@@ -488,7 +497,7 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
 
   // Calculate subjects completed
   const completedSubjectsCount = subjects.filter(
-    (sub) => getSubjectQuestionsAttempted(sub) === sub.questions.length
+    (sub) => getSubjectQuestionsAttempted(sub) === sub.questions.filter((q: any) => q.questionType !== "THEORY").length
   ).length;
 
   return (
@@ -725,33 +734,36 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
 
                 {activeQuestion?.questionType === "THEORY" ? (
                   <div className="pl-13 py-6 space-y-4 max-w-2xl">
-                    <div className="bg-blue-50/50 border border-[#1B2A6B]/25 text-[#1B2A6B] rounded-2xl p-6 flex items-start gap-4 shadow-sm">
+                    {/* Theory Section Instructions */}
+                    {theoryInstructions.length > 0 && (
+                      <div className="bg-amber-50/60 border border-amber-250 text-amber-900 rounded-2xl p-5 space-y-2 shadow-sm animate-fade-in">
+                        <p className="text-xs font-extrabold uppercase tracking-wider text-amber-850">
+                          ⚠️ Section Instructions (Theory)
+                        </p>
+                        <div className="space-y-1 text-sm font-semibold leading-relaxed">
+                          {theoryInstructions.map((ins: any, idx: number) => (
+                            <p key={idx}>• {ins}</p>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="bg-blue-50/50 border border-[#1B2A6B]/25 text-[#1B2A6B] rounded-2xl p-6 flex items-start gap-4 shadow-sm animate-fade-in">
                       <div className="p-3 bg-white rounded-xl border border-[#1B2A6B]/15 shadow-sm text-slate-800 flex items-center justify-center flex-shrink-0">
                         <FileText className="w-6 h-6 text-[#1B2A6B]" />
                       </div>
-                      <div className="space-y-1">
-                        <p className="text-sm font-extrabold tracking-wide uppercase text-slate-700">Theory Question</p>
-                        <p className="text-xs text-slate-550 leading-relaxed font-medium">
-                          Please type your answer in the editor below. Your response is saved automatically.
-                        </p>
+                      <div className="space-y-2 flex-grow">
+                        <p className="text-sm font-extrabold tracking-wide uppercase text-slate-700 font-sans">Theory Question Reference</p>
+                        <div className="text-sm font-bold text-amber-800 bg-amber-50/50 border border-amber-200 rounded-xl p-3 shadow-xs leading-relaxed">
+                          Write your answer to this question on the physical paper sheet provided. Do NOT type your answer on the computer.
+                        </div>
                         {activeQuestion.instruction && (
-                          <div className="mt-3 p-3 bg-amber-50 border border-amber-250 text-amber-800 rounded-xl text-xs font-semibold leading-relaxed">
-                            <span className="text-amber-900 font-extrabold">Instruction: </span>
+                          <div className="mt-3 p-4 bg-white border border-[#1B2A6B]/15 text-slate-850 rounded-xl text-sm font-semibold leading-relaxed shadow-xs">
+                            <span className="text-[#1B2A6B] font-extrabold block mb-1">Teacher's Specific Instruction:</span>
                             {activeQuestion.instruction}
                           </div>
                         )}
                       </div>
-                    </div>
-
-                    <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-2">
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">Your Written Answer:</label>
-                      <textarea
-                        rows={8}
-                        value={activeAttempt.selectedOption || ""}
-                        onChange={(e) => saveAttempt(activeQuestion.id, activeSubject.subjectId, e.target.value, activeAttempt.isFlagged)}
-                        className="w-full bg-slate-50 border border-slate-200 focus:border-[#1B2A6B] focus:ring-1 focus:ring-[#1B2A6B]/25 text-slate-850 text-sm rounded-xl p-3 outline-none transition resize-y font-medium"
-                        placeholder="Type your response or answer here..."
-                      />
                     </div>
                   </div>
                 ) : (
@@ -891,7 +903,7 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
             <div className="flex items-center justify-between text-xs font-bold text-slate-455 border-b border-slate-100 pb-2">
               <span className="uppercase tracking-wider">Question Navigator Palette</span>
               <span>
-                Attempted {getSubjectQuestionsAttempted(activeSubject)} of {activeSubject?.questions?.length} Questions
+                Attempted {getSubjectQuestionsAttempted(activeSubject)} of {activeSubject?.questions?.filter((q: any) => q.questionType !== "THEORY").length || 0} MCQ Questions
               </span>
             </div>
 

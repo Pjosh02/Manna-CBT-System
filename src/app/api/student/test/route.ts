@@ -147,6 +147,7 @@ export async function GET(request: NextRequest) {
           optionE: q.optionE,
           optionF: q.optionF,
           questionType: q.questionType,
+          instruction: q.instruction,
         })),
       });
     }

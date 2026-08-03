@@ -519,57 +519,74 @@ export async function GET(
 `;
         }
 
-        // Process options list
-        const options = [
-          { key: "A", text: q.optionA },
-          { key: "B", text: q.optionB },
-          { key: "C", text: q.optionC },
-          { key: "D", val: q.optionD },
-          ...(q.optionE ? [{ key: "E", val: q.optionE }] : []),
-          ...(q.optionF ? [{ key: "F", val: q.optionF }] : []),
-        ];
-
         let optionsHtml = "";
-        for (const opt of options) {
-          const val = "text" in opt ? opt.text : (opt as any).val;
-          const isCorrect = opt.key.toUpperCase() === q.correctOption.toUpperCase();
-          const isSelected = studentSelect?.toUpperCase() === opt.key.toUpperCase();
-
-          let rowClass = "";
-          let badgeHtml = "";
-
-          if (isCorrect && isSelected) {
-            rowClass = "state-correct";
-            badgeHtml = `<span class="badge badge-both">✓ Correct &amp; Your Choice</span>`;
-          } else if (isCorrect && !isSelected) {
-            rowClass = "state-correct";
-            badgeHtml = `<span class="badge badge-correct">✓ Correct Answer</span>`;
-          } else if (!isCorrect && isSelected) {
-            rowClass = "state-incorrect";
-            badgeHtml = `<span class="badge badge-incorrect">✗ Your Choice (Incorrect)</span>`;
-          }
-
-          optionsHtml += `
-        <div class="option-item ${rowClass}">
-          <div class="option-left">
-            <div class="option-letter">${opt.key}</div>
-            <div class="option-text">${renderMathInText(val || "")}</div>
+        if (q.questionType === "THEORY") {
+          let instructionHtml = "";
+          if (q.instruction) {
+            instructionHtml = `
+          <div style="margin-top: 10px; padding: 10px 14px; background-color: #f8fafc; border-left: 3.5px solid #1B2A6B; border-radius: 6px; font-size: 11px; font-weight: 600; color: #1b2a6b;">
+            <strong>Instruction:</strong> ${renderMathInText(q.instruction)}
           </div>
-          ${badgeHtml}
-        </div>
 `;
+          }
+          optionsHtml = `
+        <div style="margin-top: 12px; padding: 12px 14px; border: 1.5px dashed #cbd5e1; border-radius: 8px; font-style: italic; font-weight: 600; color: #475569; background-color: #f8fafc; font-size: 11.5px; display: flex; align-items: center; gap: 8px;">
+          📝 Answered on physical paper sheet.
+        </div>
+        ${instructionHtml}
+`;
+        } else {
+          // Process options list
+          const options = [
+            { key: "A", text: q.optionA },
+            { key: "B", text: q.optionB },
+            { key: "C", text: q.optionC },
+            { key: "D", val: q.optionD },
+            ...(q.optionE ? [{ key: "E", val: q.optionE }] : []),
+            ...(q.optionF ? [{ key: "F", val: q.optionF }] : []),
+          ];
+
+          for (const opt of options) {
+            const val = "text" in opt ? opt.text : (opt as any).val;
+            const isCorrect = opt.key.toUpperCase() === q.correctOption.toUpperCase();
+            const isSelected = studentSelect?.toUpperCase() === opt.key.toUpperCase();
+
+            let rowClass = "";
+            let badgeHtml = "";
+
+            if (isCorrect && isSelected) {
+              rowClass = "state-correct";
+              badgeHtml = `<span class="badge badge-both">✓ Correct &amp; Your Choice</span>`;
+            } else if (isCorrect && !isSelected) {
+              rowClass = "state-correct";
+              badgeHtml = `<span class="badge badge-correct">✓ Correct Answer</span>`;
+            } else if (!isCorrect && isSelected) {
+              rowClass = "state-incorrect";
+              badgeHtml = `<span class="badge badge-incorrect">✗ Your Choice (Incorrect)</span>`;
+            }
+
+            optionsHtml += `
+          <div class="option-item ${rowClass}">
+            <div class="option-left">
+              <div class="option-letter">${opt.key}</div>
+              <div class="option-text">${renderMathInText(val || "")}</div>
+            </div>
+            ${badgeHtml}
+          </div>
+`;
+          }
         }
 
         htmlContent += `
     <div class="question-card">
       <div class="question-header">
-        <span class="question-num">Question ${questionIndex}</span>
+        <span class="question-num">Question ${questionIndex}${q.questionType === "THEORY" ? " (Theory)" : ""}</span>
         <span class="question-points">${q.points} pt(s)</span>
       </div>
       ${passageHtml}
       <div class="question-text">${renderMathInText(q.questionText)}</div>
       ${diagramHtml}
-      <div class="options-grid">
+      <div class="${q.questionType === "THEORY" ? "" : "options-grid"}">
         ${optionsHtml}
       </div>
     </div>
