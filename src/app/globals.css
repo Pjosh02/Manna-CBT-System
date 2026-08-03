@@ -11,14 +11,14 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 
-  /* Customize border-radius globally for a softer SaaS dashboard look */
+  /* Soft, modern SaaS curves to match the MySkool Portal design */
   --radius-xs: 4px;
-  --radius-sm: 6px;
-  --radius-md: 8px;      /* Input fields, dropdowns, search bars, small buttons (~8px) */
-  --radius-lg: 10px;     /* Medium buttons, selection tiles (~10px) */
-  --radius-xl: 12px;     /* Cards, containers, list rows (~12px) */
-  --radius-2xl: 14px;    /* Stat panels, dialog boxes (~14px) */
-  --radius-3xl: 20px;
+  --radius-sm: 8px;
+  --radius-md: 10px;     /* Input fields, dropdowns, search bars (~10px) */
+  --radius-lg: 12px;     /* Buttons, small elements (~12px) */
+  --radius-xl: 16px;     /* List rows, standard cards, profile widgets (~16px) */
+  --radius-2xl: 24px;    /* Stat panels, dialog boxes, cards (~24px) */
+  --radius-3xl: 32px;    /* Outer main wrappers (~32px) */
 }
 
 body {
