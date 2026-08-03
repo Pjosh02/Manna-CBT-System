@@ -1,3 +1,0 @@
-# nixpacks.toml to install Chromium dependency on Railway
-[phases.setup]
-nixPkgs = ["...", "chromium"]

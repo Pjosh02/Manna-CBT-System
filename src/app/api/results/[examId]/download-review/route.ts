@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { verifyJWT } from "@/lib/jwt";
-import puppeteer from "puppeteer-core";
+import puppeteer from "puppeteer";
 import fs from "fs";
 import path from "path";
 import katex from "katex";
@@ -601,77 +601,9 @@ export async function GET(
 </html>
 `;
 
-    // 8. Launch local browser and convert HTML to A4 PDF
-    let executablePath = "";
-    if (process.platform === "win32") {
-      const windowsPaths = [
-        "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-        "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
-        "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
-      ];
-      for (const p of windowsPaths) {
-        if (fs.existsSync(p)) {
-          executablePath = p;
-          break;
-        }
-      }
-    } else {
-      // Linux/macOS
-      const executables = ["chromium", "google-chrome", "google-chrome-stable", "chromium-browser"];
-      
-      // 1. First check if the commands are available and runnable directly from system PATH
-      for (const exe of executables) {
-        try {
-          execSync(`${exe} --version`, { stdio: "ignore" });
-          executablePath = exe; // Set directly to the executable name to let OS resolve it via PATH
-          break;
-        } catch (e) {
-          // not found in PATH or failed to run
-        }
-      }
-
-      // 2. Fallback to using `which` to find resolved path
-      if (!executablePath) {
-        for (const exe of executables) {
-          try {
-            const resolvedPath = execSync(`which ${exe}`, { stdio: "pipe" }).toString().trim();
-            if (resolvedPath && fs.existsSync(resolvedPath)) {
-              executablePath = resolvedPath;
-              break;
-            }
-          } catch (e) {
-            // command failed
-          }
-        }
-      }
-
-      // 3. Fallbacks to absolute paths
-      if (!executablePath) {
-        const fallbacks = [
-          "/usr/bin/chromium",
-          "/usr/bin/chromium-browser",
-          "/usr/bin/google-chrome",
-          "/usr/bin/google-chrome-stable",
-          "/snap/bin/chromium",
-          "/usr/bin/chrome"
-        ];
-        for (const p of fallbacks) {
-          if (fs.existsSync(p)) {
-            executablePath = p;
-            break;
-          }
-        }
-      }
-    }
-
-    if (!executablePath) {
-      console.error("No suitable Edge, Chrome, or Chromium executable found on host.");
-      return NextResponse.json({ error: "System browser environment missing" }, { status: 500 });
-    }
-
+    // 8. Launch bundled browser and convert HTML to A4 PDF
     const browser = await puppeteer.launch({
-      executablePath,
-      args: ["--allow-file-access-from-files", "--no-sandbox", "--disable-setuid-sandbox"],
+      args: ["--allow-file-access-from-files", "--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
       headless: true,
     });
 
