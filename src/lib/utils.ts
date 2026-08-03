@@ -5,12 +5,9 @@
  */
 export function formatPassportUrl(userId: string, passportUrl: string | null): string | null {
   if (!passportUrl) return null;
-  if (
-    passportUrl.startsWith("data:") || 
-    passportUrl.startsWith("/api/uploads/") || 
-    passportUrl.startsWith("/uploads/")
-  ) {
-    return `/api/uploads/passport/${userId}`;
+  // If it's already our dynamic endpoint, don't double format
+  if (passportUrl.startsWith("/api/uploads/passport/")) {
+    return passportUrl;
   }
-  return passportUrl;
+  return `/api/uploads/passport/${userId}`;
 }

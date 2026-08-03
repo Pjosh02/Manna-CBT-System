@@ -5,11 +5,10 @@ import path from "path";
 
 export async function GET(
   request: NextRequest,
-  context: any
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const params = await context.params;
-    const id = params.id;
+    const { id } = await params;
     if (!id) {
       return new Response("User ID is required", { status: 400 });
     }
