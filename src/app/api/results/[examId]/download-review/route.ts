@@ -618,19 +618,34 @@ export async function GET(
     } else {
       // Linux/macOS
       const executables = ["chromium", "google-chrome", "google-chrome-stable", "chromium-browser"];
+      
+      // 1. First check if the commands are available and runnable directly from system PATH
       for (const exe of executables) {
         try {
-          const resolvedPath = execSync(`which ${exe}`, { stdio: "pipe" }).toString().trim();
-          if (resolvedPath && fs.existsSync(resolvedPath)) {
-            executablePath = resolvedPath;
-            break;
-          }
+          execSync(`${exe} --version`, { stdio: "ignore" });
+          executablePath = exe; // Set directly to the executable name to let OS resolve it via PATH
+          break;
         } catch (e) {
-          // command failed or not found
+          // not found in PATH or failed to run
         }
       }
 
-      // Fallbacks if which fails
+      // 2. Fallback to using `which` to find resolved path
+      if (!executablePath) {
+        for (const exe of executables) {
+          try {
+            const resolvedPath = execSync(`which ${exe}`, { stdio: "pipe" }).toString().trim();
+            if (resolvedPath && fs.existsSync(resolvedPath)) {
+              executablePath = resolvedPath;
+              break;
+            }
+          } catch (e) {
+            // command failed
+          }
+        }
+      }
+
+      // 3. Fallbacks to absolute paths
       if (!executablePath) {
         const fallbacks = [
           "/usr/bin/chromium",
