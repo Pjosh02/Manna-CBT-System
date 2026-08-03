@@ -41,20 +41,29 @@ export default function StudentDashboard() {
     if (!examId) return;
     setDownloadingExamId(examId);
     try {
+      const response = await fetch(`/api/results/${examId}/download-review`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Server returned status ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+
       const link = document.createElement("a");
-      link.href = `/api/results/${examId}/download-review`;
-      link.target = "_blank";
+      link.href = blobUrl;
       link.setAttribute("download", `Exam_Review_${examId}.pdf`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-    } catch (err) {
+
+      // Clean up the URL object after trigger
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (err: any) {
       console.error("Error downloading review PDF:", err);
-      alert("Failed to download questions. Please try again.");
+      alert(err.message || "Failed to download questions. Please try again.");
     } finally {
-      setTimeout(() => {
-        setDownloadingExamId(null);
-      }, 2000);
+      setDownloadingExamId(null);
     }
   };
 
