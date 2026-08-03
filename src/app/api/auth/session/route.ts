@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyJWT } from "@/lib/jwt";
 import { prisma } from "@/lib/db";
+import { formatPassportUrl } from "@/lib/utils";
 
 export async function GET(request: NextRequest) {
   try {
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
         classId: dbUser?.classId || null,
         className: dbUser?.class ? `${dbUser.class.name} ${dbUser.class.arm}` : null,
         classes: dbUser?.classes.map(c => ({ id: c.id, name: c.name, arm: c.arm, academicSession: c.academicSession })) || [],
-        passportUrl: dbUser?.passportUrl || null,
+        passportUrl: formatPassportUrl(payload.id, dbUser?.passportUrl || null),
       },
     });
   } catch (error) {

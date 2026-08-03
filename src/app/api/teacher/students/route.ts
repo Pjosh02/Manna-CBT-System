@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { verifyJWT } from "@/lib/jwt";
+import { formatPassportUrl } from "@/lib/utils";
 
 export async function GET(request: NextRequest) {
   try {
@@ -39,7 +40,11 @@ export async function GET(request: NextRequest) {
       orderBy: { name: "asc" },
     });
 
-    return NextResponse.json({ students });
+    const formattedStudents = students.map((s) => ({
+      ...s,
+      passportUrl: formatPassportUrl(s.id, s.passportUrl),
+    }));
+    return NextResponse.json({ students: formattedStudents });
   } catch (error) {
     console.error("GET teacher students error:", error);
     return NextResponse.json({ error: "Failed to fetch student roster" }, { status: 500 });
@@ -119,10 +124,14 @@ export async function POST(request: NextRequest) {
         addedStudents.push(student);
       }
 
+      const formattedAddedStudents = addedStudents.map((s) => ({
+        ...s,
+        passportUrl: formatPassportUrl(s.id, s.passportUrl),
+      }));
       return NextResponse.json({
         success: true,
         count: addedStudents.length,
-        students: addedStudents,
+        students: formattedAddedStudents,
         errors,
       });
     }
@@ -161,7 +170,12 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ student: newStudent }, { status: 201 });
+    const formattedStudent = {
+      ...newStudent,
+      passportUrl: formatPassportUrl(newStudent.id, newStudent.passportUrl),
+    };
+
+    return NextResponse.json({ student: formattedStudent }, { status: 201 });
   } catch (error) {
     console.error("POST teacher students error:", error);
     return NextResponse.json({ error: "Failed to add student" }, { status: 500 });
@@ -241,7 +255,12 @@ export async function PATCH(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ student: updatedStudent });
+    const formattedStudent = {
+      ...updatedStudent,
+      passportUrl: formatPassportUrl(updatedStudent.id, updatedStudent.passportUrl),
+    };
+
+    return NextResponse.json({ student: formattedStudent });
   } catch (error) {
     console.error("PATCH teacher student error:", error);
     return NextResponse.json({ error: "Failed to update student" }, { status: 500 });

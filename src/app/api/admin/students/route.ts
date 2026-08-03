@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
+import { formatPassportUrl } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,11 @@ export async function GET() {
         subjectScores: true,
       },
     });
-    return NextResponse.json({ students });
+    const formattedStudents = students.map((s) => ({
+      ...s,
+      passportUrl: formatPassportUrl(s.id, s.passportUrl),
+    }));
+    return NextResponse.json({ students: formattedStudents });
   } catch (error) {
     console.error("GET students error:", error);
     return NextResponse.json({ error: "Failed to fetch students" }, { status: 500 });
@@ -66,7 +71,12 @@ export async function POST(request: NextRequest) {
       include: { class: true },
     });
 
-    return NextResponse.json({ student: newStudent }, { status: 201 });
+    const formattedStudent = {
+      ...newStudent,
+      passportUrl: formatPassportUrl(newStudent.id, newStudent.passportUrl),
+    };
+
+    return NextResponse.json({ student: formattedStudent }, { status: 201 });
   } catch (error) {
     console.error("POST student error:", error);
     return NextResponse.json({ error: "Failed to create student" }, { status: 500 });
@@ -141,7 +151,12 @@ export async function PATCH(request: NextRequest) {
       include: { class: true },
     });
 
-    return NextResponse.json({ student: updatedStudent });
+    const formattedStudent = {
+      ...updatedStudent,
+      passportUrl: formatPassportUrl(updatedStudent.id, updatedStudent.passportUrl),
+    };
+
+    return NextResponse.json({ student: formattedStudent });
   } catch (error) {
     console.error("PATCH student error:", error);
     return NextResponse.json({ error: "Failed to update student" }, { status: 500 });
