@@ -159,6 +159,12 @@ export async function POST(request: NextRequest) {
     }
 
     const passwordHash = await bcrypt.hash(rollInt.toString(), 10);
+
+    let passportUrlToSave = passportUrl;
+    if (passportUrl && passportUrl.startsWith("/api/uploads/passport/")) {
+      passportUrlToSave = null;
+    }
+
     const newStudent = await prisma.user.create({
       data: {
         name,
@@ -166,7 +172,7 @@ export async function POST(request: NextRequest) {
         passwordHash,
         role: "STUDENT",
         classId,
-        passportUrl,
+        passportUrl: passportUrlToSave,
       },
     });
 
@@ -245,13 +251,22 @@ export async function PATCH(request: NextRequest) {
 
     const passwordHash = await bcrypt.hash(rollInt.toString(), 10);
 
+    let passportUrlToSave = passportUrl;
+    if (passportUrl && passportUrl.startsWith("/api/uploads/passport/")) {
+      const existingUser = await prisma.user.findUnique({
+        where: { id },
+        select: { passportUrl: true },
+      });
+      passportUrlToSave = existingUser?.passportUrl ?? null;
+    }
+
     const updatedStudent = await prisma.user.update({
       where: { id },
       data: {
         name,
         rollNumber: rollInt,
         passwordHash,
-        passportUrl,
+        passportUrl: passportUrlToSave,
       },
     });
 
