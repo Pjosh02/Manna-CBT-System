@@ -273,11 +273,20 @@ export default function StudentDashboard() {
         <main className="flex-1 p-6 space-y-8 overflow-y-auto">
           {/* Welcome Card */}
           <div className="bg-gradient-to-r from-slate-100 to-indigo-50 border border-slate-200 rounded-3xl p-6 text-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h2 className="text-xl font-extrabold tracking-tight">Welcome, {user?.name}!</h2>
-              <p className="text-slate-500 text-xs mt-1">
-                Classroom scope: <span className="text-[#1B2A6B] font-bold">{user?.className || "No classroom"}</span>. Ready to evaluate your progress?
-              </p>
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 rounded-full bg-slate-200 border border-slate-350 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                {user?.passportUrl ? (
+                  <img src={user.passportUrl} alt={user.name} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-lg font-bold text-[#1B2A6B]">{getInitials(user?.name)}</span>
+                )}
+              </div>
+              <div>
+                <h2 className="text-xl font-extrabold tracking-tight">Welcome, {user?.name}!</h2>
+                <p className="text-slate-500 text-xs mt-1">
+                  Classroom scope: <span className="text-[#1B2A6B] font-bold">{user?.className || "No classroom"}</span>. Ready to evaluate your progress?
+                </p>
+              </div>
             </div>
             <div className="bg-white border border-slate-200 px-4 py-2.5 rounded-2xl text-xs flex items-center gap-2 text-slate-700 shadow-sm">
               <Clock className="w-4 h-4 text-[#FFD100]" />

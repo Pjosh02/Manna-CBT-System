@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: "desc" },
     });
 
-    const formatted = results.map((r) => ({
+    const formatted = results.map((r: any) => ({
       id: r.id,
       examId: r.examId,
       examTitle: r.exam.title,

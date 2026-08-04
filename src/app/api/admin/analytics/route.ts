@@ -23,7 +23,7 @@ export async function GET() {
       { name: string; email: string | null; rollNumber: number | null; totalScore: number; count: number }
     > = {};
 
-    results.forEach((res) => {
+    results.forEach((res: any) => {
       // Exam breakdown
       if (!examAverages[res.examId]) {
         examAverages[res.examId] = {
@@ -86,7 +86,7 @@ export async function GET() {
       { text: string; subject: string; totalAttempts: number; incorrectCount: number }
     > = {};
 
-    attempts.forEach((att) => {
+    attempts.forEach((att: any) => {
       const qId = att.questionId;
       if (!questionStats[qId]) {
         questionStats[qId] = {

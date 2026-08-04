@@ -124,7 +124,7 @@ export async function GET(
       },
     });
 
-    const attemptsMap = attempts.reduce((acc: Record<string, string | null>, att) => {
+    const attemptsMap = attempts.reduce((acc: Record<string, string | null>, att: any) => {
       acc[att.questionId] = att.selectedOption;
       return acc;
     }, {});
@@ -141,12 +141,12 @@ export async function GET(
       });
 
       const shuffled = allSubjectQuestions
-        .map((q) => ({
+        .map((q: any) => ({
           q,
           hash: hashString(studentId + q.id),
         }))
-        .sort((a, b) => a.hash - b.hash)
-        .map((item) => item.q);
+        .sort((a: any, b: any) => a.hash - b.hash)
+        .map((item: any) => item.q);
 
       const assignedQuestions = shuffled.slice(0, es.numberOfQuestions);
       if (assignedQuestions.length > 0) {
@@ -180,7 +180,7 @@ export async function GET(
       console.error("Error reading logo file:", e);
     }
 
-    const subjectListStr = exam.examSubjects.map((es) => es.subject.name).join(", ");
+    const subjectListStr = exam.examSubjects.map((es: any) => es.subject.name).join(", ");
     const windowStr = `${new Date(exam.startTime).toLocaleDateString()} - ${new Date(exam.endTime).toLocaleDateString()}`;
 
     // 6. Build the rich HTML representation of the exam review

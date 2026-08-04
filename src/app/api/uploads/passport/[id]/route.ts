@@ -43,14 +43,21 @@ export async function GET(
 
     // 1. Check if it's base64 data URL
     if (passportUrl.startsWith("data:")) {
-      const match = passportUrl.match(/^data:([^;]+);base64,([\s\S]+)$/);
-      if (!match) {
+      const commaIndex = passportUrl.indexOf(",");
+      if (commaIndex === -1) {
         return new Response("Invalid image data format", { status: 400 });
       }
 
-      const contentType = match[1];
-      const base64Data = match[2];
-      const fileBuffer = Buffer.from(base64Data, "base64");
+      const metadata = passportUrl.substring(0, commaIndex);
+      const base64Data = passportUrl.substring(commaIndex + 1);
+
+      let contentType = "image/jpeg";
+      const mimeMatch = metadata.match(/^data:([^;]+)/);
+      if (mimeMatch) {
+        contentType = mimeMatch[1];
+      }
+
+      const fileBuffer = Buffer.from(base64Data.trim(), "base64");
 
       return new Response(fileBuffer, {
         headers: {

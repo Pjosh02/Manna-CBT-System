@@ -15,7 +15,7 @@ export async function GET() {
         subjectScores: true,
       },
     });
-    const formattedStudents = students.map((s) => ({
+    const formattedStudents = students.map((s: any) => ({
       ...s,
       passportUrl: formatPassportUrl(s.id, s.passportUrl),
     }));

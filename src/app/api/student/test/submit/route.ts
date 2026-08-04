@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    const attemptsMap = attempts.reduce((acc: any, att) => {
+    const attemptsMap = attempts.reduce((acc: any, att: any) => {
       acc[att.questionId] = att.selectedOption;
       return acc;
     }, {});
@@ -83,22 +83,22 @@ export async function POST(request: NextRequest) {
 
       // Same deterministic shuffle
       const shuffled = allSubjectQuestions
-        .map((q) => ({
+        .map((q: any) => ({
           q,
           hash: hashString(studentId + q.id),
         }))
-        .sort((a, b) => a.hash - b.hash)
-        .map((item) => item.q);
+        .sort((a: any, b: any) => a.hash - b.hash)
+        .map((item: any) => item.q);
 
       const assignedQuestions = shuffled.slice(0, es.numberOfQuestions);
-      assignedQuestions.sort((a, b) => {
+      assignedQuestions.sort((a: any, b: any) => {
         if (a.questionType === "THEORY" && b.questionType !== "THEORY") return 1;
         if (a.questionType !== "THEORY" && b.questionType === "THEORY") return -1;
         return 0;
       });
       totalAssignedQuestions += assignedQuestions.length;
 
-      const mcqQuestions = assignedQuestions.filter((q) => q.questionType !== "THEORY");
+      const mcqQuestions = assignedQuestions.filter((q: any) => q.questionType !== "THEORY");
       totalQuestionsCount += mcqQuestions.length;
 
       if (assignedQuestions.length > 0 && !firstAssignedQuestionType) {
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Grade attempts
-      mcqQuestions.forEach((q) => {
+      mcqQuestions.forEach((q: any) => {
         const studentSelect = attemptsMap[q.id];
         if (studentSelect && studentSelect.toUpperCase() === q.correctOption.toUpperCase()) {
           correctAnswersCount += 1;

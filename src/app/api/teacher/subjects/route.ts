@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
       select: { classId: true, classes: { select: { id: true } } },
     });
 
-    const assignedClassIds = dbUser ? [dbUser.classId, ...dbUser.classes.map(c => c.id)].filter(Boolean) as string[] : [];
+    const assignedClassIds = dbUser ? [dbUser.classId, ...dbUser.classes.map((c: any) => c.id)].filter(Boolean) as string[] : [];
     if (assignedClassIds.length === 0) {
       return NextResponse.json({ subjects: [] });
     }
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
       select: { classId: true, classes: { select: { id: true } } },
     });
 
-    const assignedClassIds = dbUser ? [dbUser.classId, ...dbUser.classes.map(c => c.id)].filter(Boolean) as string[] : [];
+    const assignedClassIds = dbUser ? [dbUser.classId, ...dbUser.classes.map((c: any) => c.id)].filter(Boolean) as string[] : [];
     if (assignedClassIds.length === 0) {
       return NextResponse.json(
         { error: "You are not assigned to a class. Contact Admin." },

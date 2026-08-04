@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
       select: { classId: true, classes: { select: { id: true } } },
     });
 
-    const assignedClassIds = dbUser ? [dbUser.classId, ...dbUser.classes.map(c => c.id)].filter(Boolean) as string[] : [];
+    const assignedClassIds = dbUser ? [dbUser.classId, ...dbUser.classes.map((c: any) => c.id)].filter(Boolean) as string[] : [];
     if (assignedClassIds.length === 0) {
       return NextResponse.json({ students: [] });
     }
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
       orderBy: { name: "asc" },
     });
 
-    const formattedStudents = students.map((s) => ({
+    const formattedStudents = students.map((s: any) => ({
       ...s,
       passportUrl: formatPassportUrl(s.id, s.passportUrl),
     }));
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
       select: { classId: true, classes: { select: { id: true } } },
     });
 
-    const assignedClassIds = dbUser ? [dbUser.classId, ...dbUser.classes.map(c => c.id)].filter(Boolean) as string[] : [];
+    const assignedClassIds = dbUser ? [dbUser.classId, ...dbUser.classes.map((c: any) => c.id)].filter(Boolean) as string[] : [];
     if (assignedClassIds.length === 0) {
       return NextResponse.json(
         { error: "You are not assigned to any class. Contact Admin." },
@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
         addedStudents.push(student);
       }
 
-      const formattedAddedStudents = addedStudents.map((s) => ({
+      const formattedAddedStudents = addedStudents.map((s: any) => ({
         ...s,
         passportUrl: formatPassportUrl(s.id, s.passportUrl),
       }));
@@ -201,7 +201,7 @@ export async function PATCH(request: NextRequest) {
       select: { classId: true, classes: { select: { id: true } } },
     });
 
-    const assignedClassIds = dbUser ? [dbUser.classId, ...dbUser.classes.map(c => c.id)].filter(Boolean) as string[] : [];
+    const assignedClassIds = dbUser ? [dbUser.classId, ...dbUser.classes.map((c: any) => c.id)].filter(Boolean) as string[] : [];
     if (assignedClassIds.length === 0) {
       return NextResponse.json(
         { error: "You are not assigned to any class. Contact Admin." },

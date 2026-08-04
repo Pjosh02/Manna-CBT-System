@@ -60,17 +60,17 @@ export async function GET(
       where: { examId },
     });
 
-    const sessionsMap = sessions.reduce((acc: any, s) => {
+    const sessionsMap = sessions.reduce((acc: any, s: any) => {
       acc[s.studentId] = s;
       return acc;
     }, {});
 
-    const resultsMap = results.reduce((acc: any, r) => {
+    const resultsMap = results.reduce((acc: any, r: any) => {
       acc[r.studentId] = r;
       return acc;
     }, {});
 
-    const proctorList = students.map((student) => {
+    const proctorList = students.map((student: any) => {
       const session = sessionsMap[student.id];
       const result = resultsMap[student.id];
 
@@ -193,7 +193,7 @@ export async function POST(
           where: { examId, studentId },
         });
 
-        const attemptsMap = attempts.reduce((acc: any, att) => {
+        const attemptsMap = attempts.reduce((acc: any, att: any) => {
           acc[att.questionId] = att.selectedOption;
           return acc;
         }, {});
@@ -208,29 +208,29 @@ export async function POST(
           });
 
           const shuffled = allSubjectQuestions
-            .map((q) => ({
+            .map((q: any) => ({
               q,
               hash: hashString(studentId + q.id),
             }))
-            .sort((a, b) => a.hash - b.hash)
-            .map((item) => item.q);
+            .sort((a: any, b: any) => a.hash - b.hash)
+            .map((item: any) => item.q);
 
           const assignedQuestions = shuffled.slice(0, es.numberOfQuestions);
-          assignedQuestions.sort((a, b) => {
+          assignedQuestions.sort((a: any, b: any) => {
             if (a.questionType === "THEORY" && b.questionType !== "THEORY") return 1;
             if (a.questionType !== "THEORY" && b.questionType === "THEORY") return -1;
             return 0;
           });
           totalAssignedQuestions += assignedQuestions.length;
 
-          const mcqQuestions = assignedQuestions.filter((q) => q.questionType !== "THEORY");
+          const mcqQuestions = assignedQuestions.filter((q: any) => q.questionType !== "THEORY");
           totalQuestionsCount += mcqQuestions.length;
 
           if (assignedQuestions.length > 0 && !firstAssignedQuestionType) {
             firstAssignedQuestionType = assignedQuestions[0].assessmentType;
           }
 
-          mcqQuestions.forEach((q) => {
+          mcqQuestions.forEach((q: any) => {
             const studentSelect = attemptsMap[q.id];
             if (studentSelect && studentSelect.toUpperCase() === q.correctOption.toUpperCase()) {
               correctAnswersCount += 1;

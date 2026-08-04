@@ -116,16 +116,16 @@ export async function GET(request: NextRequest) {
       // Shuffling questions deterministically per student
       const studentId = payload.id;
       const shuffled = allSubjectQuestions
-        .map((q) => ({
+        .map((q: any) => ({
           q,
           hash: hashString(studentId + q.id),
         }))
-        .sort((a, b) => a.hash - b.hash)
-        .map((item) => item.q);
+        .sort((a: any, b: any) => a.hash - b.hash)
+        .map((item: any) => item.q);
 
       // Slice the required number of questions
       const selectedQuestions = shuffled.slice(0, es.numberOfQuestions);
-      selectedQuestions.sort((a, b) => {
+      selectedQuestions.sort((a: any, b: any) => {
         if (a.questionType === "THEORY" && b.questionType !== "THEORY") return 1;
         if (a.questionType !== "THEORY" && b.questionType === "THEORY") return -1;
         return 0;
@@ -134,7 +134,7 @@ export async function GET(request: NextRequest) {
       subjectsData.push({
         subjectId: es.subjectId,
         subjectName: es.subject.name,
-        questions: selectedQuestions.map((q) => ({
+        questions: selectedQuestions.map((q: any) => ({
           id: q.id,
           questionText: q.questionText,
           imageUrl: q.imageUrl,
@@ -160,7 +160,7 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    const attemptsMap = attempts.reduce((acc: any, att) => {
+    const attemptsMap = attempts.reduce((acc: any, att: any) => {
       acc[att.questionId] = {
         selectedOption: att.selectedOption,
         isFlagged: att.isFlagged,

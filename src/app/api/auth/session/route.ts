@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
         role: payload.role,
         classId: dbUser?.classId || null,
         className: dbUser?.class ? `${dbUser.class.name} ${dbUser.class.arm}` : null,
-        classes: dbUser?.classes.map(c => ({ id: c.id, name: c.name, arm: c.arm, academicSession: c.academicSession })) || [],
+        classes: dbUser?.classes.map((c: any) => ({ id: c.id, name: c.name, arm: c.arm, academicSession: c.academicSession })) || [],
         passportUrl: formatPassportUrl(payload.id, dbUser?.passportUrl || null),
       },
     });

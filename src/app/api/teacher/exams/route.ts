@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
       select: { classId: true, classes: { select: { id: true } } },
     });
 
-    const assignedClassIds = dbUser ? [dbUser.classId, ...dbUser.classes.map(c => c.id)].filter(Boolean) as string[] : [];
+    const assignedClassIds = dbUser ? [dbUser.classId, ...dbUser.classes.map((c: any) => c.id)].filter(Boolean) as string[] : [];
     if (assignedClassIds.length === 0) {
       return NextResponse.json({ exams: [] });
     }
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
       select: { classId: true, classes: { select: { id: true } } },
     });
 
-    const assignedClassIds = dbUser ? [dbUser.classId, ...dbUser.classes.map(c => c.id)].filter(Boolean) as string[] : [];
+    const assignedClassIds = dbUser ? [dbUser.classId, ...dbUser.classes.map((c: any) => c.id)].filter(Boolean) as string[] : [];
     if (assignedClassIds.length === 0) {
       return NextResponse.json(
         { error: "You are not assigned to any class and cannot schedule exams." },
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const newExam = await prisma.$transaction(async (tx) => {
+    const newExam = await prisma.$transaction(async (tx: any) => {
       const exam = await tx.exam.create({
         data: {
           title,
@@ -192,7 +192,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const updatedExam = await prisma.$transaction(async (tx) => {
+    const updatedExam = await prisma.$transaction(async (tx: any) => {
       // 1. Update main exam
       const updated = await tx.exam.update({
         where: { id },

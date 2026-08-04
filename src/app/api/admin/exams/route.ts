@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create the exam session inside a transaction
-    const newExam = await prisma.$transaction(async (tx) => {
+    const newExam = await prisma.$transaction(async (tx: any) => {
       const exam = await tx.exam.create({
         data: {
           title,
@@ -126,7 +126,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const updatedExam = await prisma.$transaction(async (tx) => {
+    const updatedExam = await prisma.$transaction(async (tx: any) => {
       // 1. Update main exam
       const updated = await tx.exam.update({
         where: { id },

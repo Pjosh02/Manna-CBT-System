@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Formulate active vs completed exams
-    const formattedExams = exams.map((exam) => {
+    const formattedExams = exams.map((exam: any) => {
       const hasTaken = exam.results.length > 0;
       const result = hasTaken ? exam.results[0] : null;
 
@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
         correctAnswers: exam.resultsReleased && result ? (result.correctAnswers ?? Math.round((result.score / 100) * result.totalQuestions)) : null,
         totalQuestions: exam.resultsReleased && result ? result.totalQuestions : null,
         timeSpent: exam.resultsReleased && result ? result.timeSpent : null,
-        examSubjects: exam.examSubjects.map((es) => ({
+        examSubjects: exam.examSubjects.map((es: any) => ({
           subjectId: es.subjectId,
           subjectName: es.subject.name,
           numberOfQuestions: es.numberOfQuestions,
