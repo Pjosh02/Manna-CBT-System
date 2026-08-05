@@ -5,6 +5,14 @@
  */
 export function formatPassportUrl(userId: string, passportUrl: string | null): string | null {
   if (!passportUrl) return null;
+  // If it's an external URL, return it directly so the client fetches it directly
+  if (
+    passportUrl.startsWith("http://") ||
+    passportUrl.startsWith("https://") ||
+    passportUrl.startsWith("//")
+  ) {
+    return passportUrl;
+  }
   // If it's already our dynamic endpoint, don't double format
   if (passportUrl.startsWith("/api/uploads/passport/")) {
     return passportUrl;

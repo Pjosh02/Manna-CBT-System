@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import fs from "fs";
 import path from "path";
@@ -40,6 +40,12 @@ export async function GET(
     }
 
     const passportUrl = user.passportUrl;
+
+    // Check if it's an external URL
+    if (passportUrl.startsWith("http://") || passportUrl.startsWith("https://") || passportUrl.startsWith("//")) {
+      const redirectUrl = passportUrl.startsWith("//") ? `https:${passportUrl}` : passportUrl;
+      return NextResponse.redirect(new URL(redirectUrl));
+    }
 
     // 1. Check if it's base64 data URL
     if (passportUrl.startsWith("data:")) {
