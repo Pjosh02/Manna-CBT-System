@@ -34,8 +34,11 @@ export default function StudentDashboard() {
   const [passwordSubmitting, setPasswordSubmitting] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
-  
+
   const [downloadingExamId, setDownloadingExamId] = useState<string | null>(null);
+  const [preloadingExamId, setPreloadingExamId] = useState<string | null>(null);
+  const [offlinePackageIds, setOfflinePackageIds] =
+    useState<string[]>([]);
 
   const handleDownloadQuestions = async (examId: string) => {
     if (!examId) return;
@@ -67,32 +70,343 @@ export default function StudentDashboard() {
     }
   };
 
-  const fetchSessionAndExams = async () => {
-    setLoading(true);
+  const handlePreloadOfflinePackage = async (examId: string) => {
+    if (!examId) return;
+
+    setPreloadingExamId(examId);
+
     try {
+      if (!navigator.onLine) {
+        alert(
+          "You need an internet connection to download the offline examination package."
+        );
+        return;
+      }
+
       const sessionRes = await fetch("/api/auth/session");
       const sessionData = await sessionRes.json();
-      if (!sessionData.user || sessionData.user.role !== "STUDENT") {
+
+      if (
+        !sessionData.user ||
+        sessionData.user.role !== "STUDENT"
+      ) {
         router.push("/login");
         return;
       }
+
+      const response = await fetch(
+        `/api/student/test/offline-package/download?examId=${encodeURIComponent(
+          examId
+        )}`
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error ||
+          "No offline examination package is available for you."
+        );
+      }
+
+      if (!data.package) {
+        throw new Error(
+          "The server did not return an offline examination package."
+        );
+      }
+
+      const {
+        saveExamPackage,
+      } = await import("@/lib/offline/db");
+
+      await saveExamPackage(data.package);
+
+      /*
+       * Remember the authenticated student locally.
+       * This allows the Student Dashboard to recover
+       * the student's offline packages when internet
+       * connectivity is unavailable.
+       */
+      localStorage.setItem(
+        "manna_cbt_student_id",
+        sessionData.user.id
+      );
+
+      /*
+       * Mark this examination as explicitly prepared
+       * for offline CBT use.
+       */
+      localStorage.setItem(
+        `cbt_exam_offline_${examId}`,
+        "true"
+      );
+
+      setOfflinePackageIds(
+        (current) =>
+          current.includes(examId)
+            ? current
+            : [...current, examId]
+      );
+
+      /*
+       * While the computer is still online, ask Next.js to
+       * prefetch the existing CBT page.
+       *
+       * This allows the browser to prepare the CBT route before
+       * the internet is disconnected. We are NOT creating a
+       * second CBT interface or changing the existing CBT page.
+       */
+      try {
+        router.prefetch(`/student/test/${examId}`);
+        console.log(
+          "CBT examination route prefetched for offline preparation:",
+          examId
+        );
+      } catch (prefetchError) {
+        console.warn(
+          "CBT route prefetch could not be completed:",
+          prefetchError
+        );
+      }
+
+      alert(
+        "Offline examination package downloaded successfully and this computer is prepared for the examination."
+      );
+    } catch (error: any) {
+      console.error(
+        "Offline package preload error:",
+        error
+      );
+
+      alert(
+        error?.message ||
+        "Failed to download the offline examination package."
+      );
+    } finally {
+      setPreloadingExamId(null);
+    }
+  };
+
+
+  const fetchSessionAndExams = async () => {
+    setLoading(true);
+
+    try {
+      const sessionRes = await fetch("/api/auth/session");
+      const sessionData = await sessionRes.json();
+
+      if (
+        !sessionData.user ||
+        sessionData.user.role !== "STUDENT"
+      ) {
+        router.push("/login");
+        return;
+      }
+
       setUser(sessionData.user);
 
-      const examsRes = await fetch("/api/student/exams");
-      const examsData = await examsRes.json();
-      const examsList = examsData.exams || [];
+      localStorage.setItem(
+        "manna_cbt_student_id",
+        sessionData.user.id
+      );
+
+      // Synchronize any pending offline CBT data first.
+      if (navigator.onLine) {
+        try {
+          const { syncOfflineData } = await import(
+            "@/lib/offline/sync"
+          );
+
+          const syncResult = await syncOfflineData();
+
+          console.log(
+            "Offline CBT synchronization completed:",
+            syncResult
+          );
+        } catch (syncError) {
+          console.warn(
+            "Offline CBT synchronization could not be completed yet:",
+            syncError
+          );
+        }
+      }
+
+      // Load examinations after synchronization.
+      let examsList: any[] = [];
+
+      if (navigator.onLine) {
+        try {
+          const examsRes = await fetch(
+            "/api/student/exams"
+          );
+
+          if (!examsRes.ok) {
+            throw new Error(
+              `Failed to load examinations: ${examsRes.status}`
+            );
+          }
+
+          const examsData =
+            await examsRes.json();
+
+          examsList =
+            examsData.exams || [];
+        } catch (onlineExamError) {
+          console.warn(
+            "Online examination list could not be loaded. Falling back to offline packages.",
+            onlineExamError
+          );
+        }
+      }
+
+      if (!navigator.onLine || examsList.length === 0) {
+        try {
+          const studentId =
+            localStorage.getItem(
+              "manna_cbt_student_id"
+            );
+
+          if (studentId) {
+            const {
+              getExamPackageForStudent,
+            } = await import(
+              "@/lib/offline/db"
+            );
+
+            /*
+             * The current IndexedDB helper retrieves
+             * one package at a time, so we retrieve the
+             * student's known offline exams from the
+             * locally stored offline exam flags.
+             */
+            const offlineExamIds =
+              Object.keys(localStorage)
+                .filter((key) =>
+                  key.startsWith(
+                    "cbt_exam_offline_"
+                  )
+                )
+                .map((key) =>
+                  key.replace(
+                    "cbt_exam_offline_",
+                    ""
+                  )
+                );
+
+            const offlinePackages = [];
+
+            for (const offlineExamId of offlineExamIds) {
+              try {
+                const examPackage =
+                  await getExamPackageForStudent(
+                    offlineExamId,
+                    studentId
+                  );
+
+                if (!examPackage) {
+                  continue;
+                }
+
+                offlinePackages.push(
+                  examPackage
+                );
+              } catch (packageError) {
+                console.warn(
+                  "Could not load offline package:",
+                  offlineExamId,
+                  packageError
+                );
+              }
+            }
+
+            const offlineExams =
+              offlinePackages.map(
+                (examPackage: any) => ({
+                  id: examPackage.examId,
+                  title:
+                    examPackage.examTitle,
+                  durationMinutes:
+                    examPackage.durationMinutes,
+                  startTime:
+                    examPackage.startTime,
+                  endTime:
+                    examPackage.endTime,
+                  timingStatus: "LIVE",
+                  hasTaken: false,
+                  resultsReleased: false,
+                  examSubjects:
+                    (
+                      examPackage.subjects ||
+                      []
+                    ).map(
+                      (subject: any) => ({
+                        subjectId:
+                          subject.subjectId,
+                        subjectName:
+                          subject.subjectName,
+                        numberOfQuestions:
+                          subject.numberOfQuestions,
+                      })
+                    ),
+                  offlinePackageReady:
+                    true,
+                })
+              );
+
+            /*
+             * Only replace the examination list
+             * with offline exams when we actually
+             * found locally stored packages.
+             */
+            if (offlineExams.length > 0) {
+              examsList = offlineExams;
+            }
+          }
+        } catch (offlineError) {
+          console.warn(
+            "Offline examination recovery failed:",
+            offlineError
+          );
+        }
+      }
+
       setExams(examsList);
 
-      const readyResults = examsList.filter((e: any) => e.hasTaken && e.resultsReleased);
-      const newNotifications = readyResults.map((e: any) => ({
-        id: e.id,
-        title: "Results Ready",
-        message: `Your results for "${e.title}" are ready. Score: ${e.correctAnswers !== null && e.correctAnswers !== undefined ? `${e.correctAnswers}/${e.totalQuestions}` : `${e.score}%`}`,
-        date: new Date(e.endTime || Date.now()).toLocaleDateString(),
-      }));
-      setNotifications(newNotifications);
+      // Results notifications.
+      const readyResults =
+        examsList.filter(
+          (e: any) =>
+            e.hasTaken &&
+            e.resultsReleased
+        );
+
+      const newNotifications =
+        readyResults.map(
+          (e: any) => ({
+            id: e.id,
+            title: "Results Ready",
+
+            message:
+              `Your results for "${e.title}" are ready. Score: ${e.correctAnswers !== null &&
+                e.correctAnswers !== undefined
+                ? `${e.correctAnswers}/${e.totalQuestions}`
+                : `${e.score}%`
+              }`,
+
+            date: new Date(
+              e.endTime || Date.now()
+            ).toLocaleDateString(),
+          })
+        );
+
+      setNotifications(
+        newNotifications
+      );
     } catch (error) {
-      console.error("Error loading student portal:", error);
+      console.error(
+        "Error loading student portal:",
+        error
+      );
     } finally {
       setLoading(false);
     }
@@ -100,6 +414,47 @@ export default function StudentDashboard() {
 
   useEffect(() => {
     fetchSessionAndExams();
+  }, []);
+
+  useEffect(() => {
+    const handleOnline = async () => {
+      try {
+        console.log(
+          "Internet restored. Synchronizing offline CBT data..."
+        );
+
+        const { syncOfflineData } = await import(
+          "@/lib/offline/sync"
+        );
+
+        const syncResult =
+          await syncOfflineData();
+
+        console.log(
+          "Offline CBT synchronization completed:",
+          syncResult
+        );
+
+        await fetchSessionAndExams();
+      } catch (error) {
+        console.error(
+          "Offline CBT synchronization after reconnection failed:",
+          error
+        );
+      }
+    };
+
+    window.addEventListener(
+      "online",
+      handleOnline
+    );
+
+    return () => {
+      window.removeEventListener(
+        "online",
+        handleOnline
+      );
+    };
   }, []);
 
   const handleLogout = async () => {
@@ -259,7 +614,7 @@ export default function StudentDashboard() {
           </button>
 
           <button
-            onClick={() => {}}
+            onClick={() => { }}
             className="flex flex-col items-center gap-1.5 text-slate-300 hover:text-white transition group cursor-pointer"
           >
             <div className="p-2.5 hover:bg-[#152052] border border-transparent hover:border-[#152052] rounded-2xl">
@@ -307,13 +662,12 @@ export default function StudentDashboard() {
                 {exams.map((exam) => (
                   <div
                     key={exam.id}
-                    className={`bg-white border border-slate-200 shadow-sm rounded-2xl p-5 text-slate-800 flex flex-col justify-between transition-all duration-300 ${
-                      exam.hasTaken
-                        ? "border-emerald-500/20 hover:border-emerald-500/30"
-                        : exam.timingStatus === "LIVE"
+                    className={`bg-white border border-slate-200 shadow-sm rounded-2xl p-5 text-slate-800 flex flex-col justify-between transition-all duration-300 ${exam.hasTaken
+                      ? "border-emerald-500/20 hover:border-emerald-500/30"
+                      : exam.timingStatus === "LIVE"
                         ? "border-red-500/30 hover:border-red-500/50 shadow-lg shadow-red-500/5"
                         : "border-zinc-800 hover:border-zinc-700"
-                    }`}
+                      }`}
                   >
                     <div className="space-y-4">
                       {/* Badge / Header */}
@@ -386,12 +740,46 @@ export default function StudentDashboard() {
                           )}
                         </div>
                       ) : exam.timingStatus === "LIVE" ? (
-                        <button
-                          onClick={() => router.push(`/student/test/${exam.id}`)}
-                          className="flex items-center justify-center gap-2 w-full py-2.5 bg-[#1B2A6B] hover:bg-[#152052] text-white text-xs font-bold rounded-xl transition shadow-sm border-b-2 border-b-[#FFD100] cursor-pointer"
-                        >
-                          <Play className="w-3.5 h-3.5 fill-white" /> Start Examination
-                        </button>
+                        <div className="w-full space-y-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handlePreloadOfflinePackage(exam.id)
+                            }
+                            disabled={preloadingExamId === exam.id}
+                            className="flex items-center justify-center gap-2 w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-[#1B2A6B] text-xs font-bold rounded-xl transition shadow-sm border border-slate-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {preloadingExamId === exam.id ? (
+                              <>
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                Downloading Offline Package...
+                              </>
+                            ) : localStorage.getItem(
+                              `cbt_exam_offline_${exam.id}`
+                            ) === "true" ? (
+                              <>
+                                <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                                Offline Package Ready
+                              </>
+                            ) : (
+                              <>
+                                <Download className="w-3.5 h-3.5" />
+                                Download Offline Package
+                              </>
+                            )}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              router.push(`/student/test/${exam.id}`)
+                            }
+                            className="flex items-center justify-center gap-2 w-full py-2.5 bg-[#1B2A6B] hover:bg-[#152052] text-white text-xs font-bold rounded-xl transition shadow-sm border-b-2 border-b-[#FFD100] cursor-pointer"
+                          >
+                            <Play className="w-3.5 h-3.5 fill-white" />
+                            Start Examination
+                          </button>
+                        </div>
                       ) : exam.timingStatus === "SCHEDULED" ? (
                         <div className="flex items-center gap-1.5 text-slate-500 text-xs font-semibold py-2">
                           <Calendar className="w-4 h-4" />
@@ -556,13 +944,12 @@ export default function StudentDashboard() {
                   {exams.filter((e: any) => e.hasTaken).map((exam) => {
                     const isReleased = exam.resultsReleased;
                     return (
-                      <div 
-                        key={exam.id} 
-                        className={`p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in border transition ${
-                          isReleased
-                            ? "bg-slate-50 border-slate-150"
-                            : "bg-slate-50 border-slate-150 opacity-70"
-                        }`}
+                      <div
+                        key={exam.id}
+                        className={`p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in border transition ${isReleased
+                          ? "bg-slate-50 border-slate-150"
+                          : "bg-slate-50 border-slate-150 opacity-70"
+                          }`}
                       >
                         <div>
                           <h4 className="text-sm font-bold text-slate-800">{exam.title}</h4>

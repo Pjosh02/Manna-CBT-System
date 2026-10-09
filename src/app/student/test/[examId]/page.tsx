@@ -4,6 +4,13 @@ import * as React from "react";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
+  recoverOfflineExamSession,
+} from "@/lib/offline/session-recovery";
+import {
+  startOrResumeOfflineExamSession,
+} from "@/lib/offline/session-start";
+import type { OfflineProctorEvent } from "@/lib/offline/types";
+import {
   GraduationCap,
   Home,
   BookOpen,
@@ -24,6 +31,7 @@ import {
   FileText,
 } from "lucide-react";
 import MathRenderer from "@/components/MathRenderer";
+
 
 function hashString(str: string): number {
   let hash = 0;
@@ -104,12 +112,300 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
   // Fetch test details
   const fetchTestDetails = async () => {
     setLoading(true);
+
     try {
-      const res = await fetch(`/api/student/test?examId=${examId}`);
+      const offlineModeKey =
+        `cbt_exam_offline_${examId}`;
+
+      const isOfflineExam =
+        localStorage.getItem(offlineModeKey) === "true";
+
+      /*
+       * ============================================================
+       * OFFLINE EXAM
+       * ============================================================
+       *
+       * When this exam has explicitly been prepared for offline use,
+       * do NOT call the server to load the examination.
+       *
+       * Everything required to display the exam must come from
+       * IndexedDB.
+       */
+      if (isOfflineExam) {
+        try {
+          /*
+           * ============================================================
+           * FULLY OFFLINE EXAM
+           * ============================================================
+           *
+           * Everything required to load the examination comes from
+           * localStorage + IndexedDB.
+           *
+           * No server request is made here.
+           */
+
+          const offlineStudentId =
+            localStorage.getItem(
+              "manna_cbt_student_id"
+            );
+
+          if (!offlineStudentId) {
+            throw new Error(
+              "This device does not have a saved student identity for the offline examination. Please connect to the internet and download the package again."
+            );
+          }
+
+          const {
+            getExamPackageForStudent,
+            getOfflineExamSessionForStudent,
+            getOfflineAnswers,
+          } = await import(
+            "@/lib/offline/db"
+          );
+
+          /*
+           * Retrieve ONLY this student's package
+           * for THIS examination.
+           */
+          const examPackage =
+            await getExamPackageForStudent(
+              examId,
+              offlineStudentId
+            );
+
+          if (!examPackage) {
+            throw new Error(
+              "No offline examination package is available for this student."
+            );
+          }
+
+          /*
+           * Defense-in-depth student verification.
+           */
+          if (
+            examPackage.studentId !==
+            offlineStudentId
+          ) {
+            throw new Error(
+              "This offline examination package belongs to a different student."
+            );
+          }
+
+          /*
+           * Build the exam object.
+           */
+          setExam({
+            id: examPackage.examId,
+            title: examPackage.examTitle,
+            durationMinutes:
+              examPackage.durationMinutes,
+            startTime:
+              examPackage.startTime,
+            endTime:
+              examPackage.endTime,
+            assessmentType:
+              examPackage.assessmentType,
+          });
+
+          /*
+           * Convert the offline package subjects/questions
+           * into the structure used by the CBT interface.
+           */
+          const offlineSubjects =
+            examPackage.subjects.map(
+              (subject) => ({
+                subjectId:
+                  subject.subjectId,
+
+                subjectName:
+                  subject.subjectName,
+
+                numberOfQuestions:
+                  subject.numberOfQuestions,
+
+                questions:
+                  subject.questions.map(
+                    (question) => ({
+                      ...question,
+                      subjectId:
+                        subject.subjectId,
+                    })
+                  ),
+              })
+            );
+
+          setSubjects(
+            offlineSubjects
+          );
+
+          /*
+           * Store the verified offline student ID
+           * in React state.
+           */
+          setStudentId(
+            offlineStudentId
+          );
+
+          /*
+           * Restore answers belonging ONLY to
+           * this student and this examination.
+           */
+          const offlineAnswers =
+            await getOfflineAnswers(
+              examId,
+              offlineStudentId
+            );
+
+          const restoredAttempts: Record<
+            string,
+            {
+              selectedOption: string | null;
+              isFlagged: boolean;
+            }
+          > = {};
+
+          for (
+            const answer of offlineAnswers
+          ) {
+            restoredAttempts[
+              answer.questionId
+            ] = {
+              selectedOption:
+                answer.selectedOption,
+              isFlagged:
+                answer.isFlagged,
+            };
+          }
+
+          setAttempts(
+            restoredAttempts
+          );
+
+          /*
+           * Restore the official locally stored
+           * proctoring count for THIS student
+           * and THIS examination.
+           */
+          const offlineSession =
+            await getOfflineExamSessionForStudent(
+              examId,
+              offlineStudentId
+            );
+
+          setTabSwitchesCount(
+            offlineSession?.tabSwitches ?? 0
+          );
+
+          /*
+           * Check whether the student has already
+           * started this offline examination.
+           */
+          if (offlineSession) {
+            setExamStarted(true);
+
+            const recovery =
+              await recoverOfflineExamSession(
+                examId,
+                offlineStudentId
+              );
+
+            if (recovery) {
+              const remainingSeconds =
+                recovery.remainingSeconds;
+
+              setTimeLeft(
+                remainingSeconds
+              );
+
+              timeLeftRef.current =
+                remainingSeconds;
+
+              const durationSeconds =
+                examPackage.durationMinutes *
+                60;
+
+              setTotalDuration(
+                durationSeconds
+              );
+
+              initialTimeLeftRef.current =
+                remainingSeconds;
+
+              if (recovery.expired) {
+                console.warn(
+                  "Recovered offline exam session has expired."
+                );
+              }
+
+              return;
+            }
+          }
+
+          /*
+           * No offline session exists yet.
+           *
+           * The timer must NOT start here.
+           * The session is created when the student
+           * presses Start Examination.
+           */
+          const durationSeconds =
+            examPackage.durationMinutes *
+            60;
+
+          setTimeLeft(
+            durationSeconds
+          );
+
+          timeLeftRef.current =
+            durationSeconds;
+
+          setTotalDuration(
+            durationSeconds
+          );
+
+          initialTimeLeftRef.current =
+            durationSeconds;
+
+          localStorage.removeItem(
+            `cbt_exam_start_${examId}`
+          );
+
+          return;
+        } catch (offlineError) {
+          console.error(
+            "Failed to load offline exam:",
+            offlineError
+          );
+
+          alert(
+            offlineError instanceof Error
+              ? offlineError.message
+              : "Failed to load the offline examination."
+          );
+
+          router.push("/student");
+          return;
+        }
+      }
+      /*
+       * ============================================================
+       * NORMAL ONLINE EXAM
+       * ============================================================
+       *
+       * The existing online CBT flow remains unchanged.
+       */
+      const res = await fetch(
+        `/api/student/test?examId=${examId}`
+      );
+
       const data = await res.json();
 
       if (!res.ok) {
-        alert(data.error || "Failed to load exam. Check if you already submitted it.");
+        alert(
+          data.error ||
+          "Failed to load exam. Check if you already submitted it."
+        );
+
         router.push("/student");
         return;
       }
@@ -118,30 +414,75 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
       setSubjects(data.subjects || []);
       setAttempts(data.attempts || {});
       setStudentId(data.studentId || "");
-      setTabSwitchesCount(data.tabSwitches || 0);
+      setTabSwitchesCount(
+        data.tabSwitches || 0
+      );
 
       // Check if already started
-      const localStorageKey = `cbt_exam_start_${examId}`;
-      const examStart = localStorage.getItem(localStorageKey);
+      const localStorageKey =
+        `cbt_exam_start_${examId}`;
+
+      const examStart =
+        localStorage.getItem(
+          localStorageKey
+        );
+
+      const durationSeconds =
+        data.exam.durationMinutes * 60;
+
       const now = Date.now();
 
+      /*
+       * EXISTING ONLINE SESSION RECOVERY
+       *
+       * Keep the current localStorage behavior for
+       * normal online examinations.
+       */
       if (examStart) {
         setExamStarted(true);
-        const startTimeStamp = parseInt(examStart, 10);
-        const durationSeconds = data.exam.durationMinutes * 60;
-        const elapsedSeconds = Math.floor((now - startTimeStamp) / 1000);
-        const remainingSeconds = Math.max(0, durationSeconds - elapsedSeconds);
 
-        setTimeLeft(remainingSeconds);
-        timeLeftRef.current = remainingSeconds;
-        setTotalDuration(durationSeconds);
-        initialTimeLeftRef.current = remainingSeconds;
+        const startTimeStamp =
+          parseInt(examStart, 10);
+
+        const elapsedSeconds =
+          Math.floor(
+            (now - startTimeStamp) / 1000
+          );
+
+        const remainingSeconds =
+          Math.max(
+            0,
+            durationSeconds -
+            elapsedSeconds
+          );
+
+        setTimeLeft(
+          remainingSeconds
+        );
+
+        timeLeftRef.current =
+          remainingSeconds;
+
+        setTotalDuration(
+          durationSeconds
+        );
+
+        initialTimeLeftRef.current =
+          remainingSeconds;
       } else {
-        const durationSeconds = data.exam.durationMinutes * 60;
-        setTimeLeft(durationSeconds);
-        timeLeftRef.current = durationSeconds;
-        setTotalDuration(durationSeconds);
-        initialTimeLeftRef.current = durationSeconds;
+        setTimeLeft(
+          durationSeconds
+        );
+
+        timeLeftRef.current =
+          durationSeconds;
+
+        setTotalDuration(
+          durationSeconds
+        );
+
+        initialTimeLeftRef.current =
+          durationSeconds;
       }
     } catch (err) {
       console.error(err);
@@ -154,6 +495,43 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
     fetchTestDetails();
   }, [examId]);
 
+  useEffect(() => {
+    const handleOnline = async () => {
+      try {
+        const offlineModeKey = `cbt_exam_offline_${examId}`;
+
+        const isOfflineExam =
+          localStorage.getItem(offlineModeKey) === "true";
+
+        if (!isOfflineExam) {
+          return;
+        }
+
+        const { syncOfflineData } = await import(
+          "@/lib/offline/sync"
+        );
+
+        const result = await syncOfflineData(examId);
+
+        console.log(
+          "Offline CBT synchronization completed:",
+          result
+        );
+      } catch (error) {
+        console.error(
+          "Offline CBT synchronization failed:",
+          error
+        );
+      }
+    };
+
+    window.addEventListener("online", handleOnline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+    };
+  }, [examId]);
+
   // Proctoring: Blur detection (Tab switching warning)
   useEffect(() => {
     if (loading || !exam || !examStarted) return;
@@ -163,25 +541,202 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
       if (showSubmitModal || reportQuestionModal) return;
 
       try {
-        const res = await fetch("/api/student/test/log-infraction", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ examId }),
-        });
-        const data = await res.json();
-        
+        const offlineModeKey =
+          `cbt_exam_offline_${examId}`;
+
+        const isOfflineExam =
+          localStorage.getItem(
+            offlineModeKey
+          ) === "true";
+
+        /*
+         * ============================================================
+         * OFFLINE PROCTORING
+         * ============================================================
+         */
+        if (isOfflineExam) {
+          try {
+            if (!studentId) {
+              console.error(
+                "Cannot record offline tab switch: student ID is missing."
+              );
+              return;
+            }
+
+            const {
+              getOfflineExamSessionForStudent,
+              saveOfflineExamSession,
+              getOfflineProctorEvents,
+              saveOfflineProctorEvent,
+              addToOfflineSyncQueue,
+              createOfflineProctorEventId,
+            } = await import(
+              "@/lib/offline/db"
+            );
+
+            const session =
+              await getOfflineExamSessionForStudent(
+                examId,
+                studentId
+              );
+
+            if (!session) {
+              console.error(
+                "Cannot record offline tab switch: offline session not found."
+              );
+              return;
+            }
+
+            /*
+             * Get the next local sequence number.
+             */
+            const existingEvents =
+              await getOfflineProctorEvents(
+                examId,
+                studentId
+              );
+
+            const nextSequenceNumber =
+              existingEvents.reduce(
+                (max, event) =>
+                  Math.max(
+                    max,
+                    event.sequenceNumber
+                  ),
+                0
+              ) + 1;
+
+            const eventTimestamp =
+              new Date().toISOString();
+
+            const newTabSwitchCount =
+              session.tabSwitches + 1;
+
+            /*
+             * Save the proctor event locally.
+             *
+             * TAB_SWITCH is intentional here because the existing
+             * online implementation treats blur as a tab-switch warning.
+             */
+            const proctorEvent = {
+              id: `proctor-${examId}-${studentId}-${nextSequenceNumber}`,
+
+              examId,
+              studentId,
+
+              type: "TAB_SWITCH" as const,
+
+              timestamp: eventTimestamp,
+
+              sequenceNumber: nextSequenceNumber,
+
+              metadata: {
+                source: "blur",
+                timestamp: eventTimestamp,
+              },
+
+              syncStatus: "PENDING" as const,
+            };
+
+            await saveOfflineProctorEvent(proctorEvent);
+
+            /*
+             * Update the local exam session immediately.
+             */
+            await saveOfflineExamSession({
+              ...session,
+              tabSwitches: newTabSwitchCount,
+            });
+
+            /*
+             * Third warning = local auto-submit.
+             */
+            if (newTabSwitchCount >= 3) {
+              alert(
+                "EXAM AUTO-SUBMITTED: You have exceeded the maximum allowed tab switches (3 warnings). Your exam is being submitted now."
+              );
+
+              await submitExam();
+              return;
+            }
+
+            const warningText =
+              `Tab switch detected at ${new Date().toLocaleTimeString()}. Warning ${newTabSwitchCount} of 3.`;
+
+            setProctorWarnings((prev) => [
+              ...prev,
+              warningText,
+            ]);
+
+            alert(
+              `WARNING: Tab switching is monitored. This is warning ${newTabSwitchCount} of 3. Exceeding 3 warnings will result in auto-submission.`
+            );
+
+            return;
+          } catch (offlineProctorError) {
+            console.error(
+              "Offline proctor event error:",
+              offlineProctorError
+            );
+
+            return;
+          }
+        }
+
+        /*
+         * ============================================================
+         * NORMAL ONLINE PROCTORING
+         * ============================================================
+         *
+         * Keep the existing server behavior unchanged.
+         */
+        const res = await fetch(
+          "/api/student/test/log-infraction",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              examId,
+            }),
+          }
+        );
+
+        const data =
+          await res.json();
+
         if (data.success) {
-          setTabSwitchesCount(data.tabSwitches);
-          
-          if (data.status === "SUBMITTED" || data.tabSwitches >= 3) {
-            alert("EXAM AUTO-SUBMITTED: You have exceeded the maximum allowed tab switches (3 warnings). Your exam is being submitted now.");
+          setTabSwitchesCount(
+            data.tabSwitches
+          );
+
+          if (
+            data.status === "SUBMITTED" ||
+            data.tabSwitches >= 3
+          ) {
+            alert(
+              "EXAM AUTO-SUBMITTED: You have exceeded the maximum allowed tab switches (3 warnings). Your exam is being submitted now."
+            );
+
             submitExam();
             return;
           }
 
-          const warningText = `Tab switch detected at ${new Date().toLocaleTimeString()}. Warning ${data.tabSwitches} of 3.`;
-          setProctorWarnings((prev) => [...prev, warningText]);
-          alert(`WARNING: Tab switching is monitored. This is warning ${data.tabSwitches} of 3. Exceeding 3 warnings will result in auto-submission.`);
+          const warningText =
+            `Tab switch detected at ${new Date().toLocaleTimeString()}. Warning ${data.tabSwitches} of 3.`;
+
+          setProctorWarnings(
+            (prev) => [
+              ...prev,
+              warningText,
+            ]
+          );
+
+          alert(
+            `WARNING: Tab switching is monitored. This is warning ${data.tabSwitches} of 3. Exceeding 3 warnings will result in auto-submission.`
+          );
         }
       } catch (err) {
         console.error("Error logging infraction:", err);
@@ -206,7 +761,7 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
           body: JSON.stringify({ examId }),
         });
         const data = await res.json();
-        
+
         if (data.success) {
           setTabSwitchesCount(data.tabSwitches);
           if (data.status === "SUBMITTED") {
@@ -228,45 +783,128 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
   useEffect(() => {
     if (loading || !exam || !examStarted) return;
 
-    const localStorageKey = `cbt_exam_start_${examId}`;
-    const storedStart = localStorage.getItem(localStorageKey);
-    if (!storedStart) return;
+    let interval: ReturnType<typeof setInterval> | null = null;
+    let cancelled = false;
 
-    const startTimeStamp = parseInt(storedStart, 10);
-    const durationSeconds = exam.durationMinutes * 60;
+    const localStorageKey =
+      `cbt_exam_start_${examId}`;
 
-    const tick = () => {
-      const now = Date.now();
-      const elapsed = Math.floor((now - startTimeStamp) / 1000);
-      const remaining = Math.max(0, durationSeconds - elapsed);
+    const offlineModeKey =
+      `cbt_exam_offline_${examId}`;
 
-      setTimeLeft(remaining);
+    const isOfflineExam =
+      localStorage.getItem(offlineModeKey) === "true";
 
-      if (remaining <= 0) {
-        setTimeLeft(0);
-        handleAutoSubmit();
-        return true; // Stop ticking
+    const runTimer = async () => {
+      let deadlineMs: number | null = null;
+
+      if (isOfflineExam && studentId) {
+        try {
+          const recovery =
+            await recoverOfflineExamSession(
+              examId,
+              studentId
+            );
+
+          if (recovery) {
+            deadlineMs =
+              new Date(
+                recovery.session.deadline
+              ).getTime();
+          }
+        } catch (error) {
+          console.error(
+            "Failed to recover offline timer:",
+            error
+          );
+        }
       }
 
-      if (remaining <= 300) {
-        setTimerLow(true);
+      // Online exam fallback
+      if (
+        deadlineMs === null ||
+        !Number.isFinite(deadlineMs)
+      ) {
+        const storedStart =
+          localStorage.getItem(localStorageKey);
+
+        if (!storedStart) {
+          return;
+        }
+
+        const startTimeStamp =
+          parseInt(storedStart, 10);
+
+        if (!Number.isFinite(startTimeStamp)) {
+          return;
+        }
+
+        deadlineMs =
+          startTimeStamp +
+          exam.durationMinutes * 60 * 1000;
       }
-      return false;
+
+      const tick = () => {
+        if (cancelled) return true;
+
+        const remainingSeconds = Math.max(
+          0,
+          Math.ceil(
+            (deadlineMs! - Date.now()) / 1000
+          )
+        );
+
+        setTimeLeft(remainingSeconds);
+        timeLeftRef.current = remainingSeconds;
+
+        if (remainingSeconds <= 300) {
+          setTimerLow(true);
+        } else {
+          setTimerLow(false);
+        }
+
+        if (remainingSeconds <= 0) {
+          setTimeLeft(0);
+          timeLeftRef.current = 0;
+          handleAutoSubmit();
+          return true;
+        }
+
+        return false;
+      };
+
+      const shouldStop = tick();
+
+      if (shouldStop || cancelled) {
+        return;
+      }
+
+      interval = setInterval(() => {
+        const stop = tick();
+
+        if (stop && interval) {
+          clearInterval(interval);
+          interval = null;
+        }
+      }, 1000);
     };
 
-    // Run initial tick
-    const shouldStop = tick();
-    if (shouldStop) return;
+    runTimer();
 
-    const interval = setInterval(() => {
-      const stop = tick();
-      if (stop) {
+    return () => {
+      cancelled = true;
+
+      if (interval) {
         clearInterval(interval);
       }
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [loading, exam, examId, examStarted]);
+    };
+  }, [
+    loading,
+    exam,
+    examId,
+    examStarted,
+    studentId,
+  ]);
 
   // Active question getters
   const activeSubject = subjects[activeSubjectIndex];
@@ -291,27 +929,121 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
     : `Q ${activeQuestionMcqIndex + 1}`;
 
   // Save attempts to database (autosave)
-  const saveAttempt = async (qId: string, subId: string, option: string | null, flag: boolean) => {
-    // Update local state first
-    setAttempts((prev) => ({
-      ...prev,
-      [qId]: { selectedOption: option, isFlagged: flag },
-    }));
-
+  const saveAttempt = async (
+    subjectId: string,
+    questionId: string,
+    selectedOption: string | null,
+    isFlagged: boolean = false
+  ) => {
     try {
-      await fetch("/api/student/test", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      // Always update the local React state immediately.
+      // This keeps the UI responsive even when offline.
+      setAttempts((prev) => ({
+        ...prev,
+        [questionId]: {
+          selectedOption,
+          isFlagged,
+        },
+      }));
+
+      const offlineModeKey =
+        `cbt_exam_offline_${examId}`;
+
+      const isOfflineExam =
+        localStorage.getItem(
+          offlineModeKey
+        ) === "true";
+
+      if (isOfflineExam) {
+        const {
+          saveOfflineAnswer,
+          addToOfflineSyncQueue,
+          createOfflineAnswerId,
+        } = await import(
+          "@/lib/offline/db"
+        );
+
+        const answer = {
+          id: createOfflineAnswerId(
+            examId,
+            studentId,
+            questionId
+          ),
           examId,
-          subjectId: subId,
-          questionId: qId,
-          selectedOption: option,
-          isFlagged: flag,
-        }),
-      });
-    } catch (err) {
-      console.error("Autosave error:", err);
+          studentId,
+          subjectId,
+          questionId,
+          selectedOption,
+          isFlagged,
+          answeredAt:
+            new Date().toISOString(),
+          syncStatus: "PENDING" as const,
+        };
+
+        // Save the answer locally first.
+        await saveOfflineAnswer(answer);
+
+        // Queue it for synchronization when
+        // internet connectivity is available.
+        await addToOfflineSyncQueue({
+          id: `answer-${examId}-${studentId}-${questionId}`,
+          examId,
+          studentId,
+          type: "ANSWER",
+          payload: {
+            examId,
+            studentId,
+            subjectId,
+            questionId,
+            selectedOption,
+            isFlagged,
+          },
+          createdAt:
+            new Date().toISOString(),
+          attempts: 0,
+          status: "PENDING",
+          lastAttemptAt: null,
+          error: null,
+        });
+
+        return;
+      }
+
+      // Normal online CBT behavior remains unchanged.
+      const res = await fetch(
+        "/api/student/test",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            examId,
+            subjectId,
+            questionId,
+            selectedOption,
+            isFlagged,
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        const data = await res.json().catch(
+          () => ({})
+        );
+
+        console.error(
+          "Failed to save attempt:",
+          data.error ||
+          "Failed to save answer"
+        );
+      }
+    } catch (error) {
+      console.error(
+        "Failed to save attempt:",
+        error
+      );
     }
   };
 
@@ -325,26 +1057,180 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
 
   // Submit test API
   const submitExam = async () => {
-    localStorage.removeItem(`cbt_exam_start_${examId}`);
-    const timeSpent = initialTimeLeftRef.current - timeLeftRef.current;
+    const offlineModeKey =
+      `cbt_exam_offline_${examId}`;
+
+    const localStorageKey =
+      `cbt_exam_start_${examId}`;
+
+    const isOfflineExam =
+      localStorage.getItem(offlineModeKey) === "true";
+
     try {
-      const res = await fetch("/api/student/test/submit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      /*
+       * OFFLINE EXAM
+       */
+      if (isOfflineExam) {
+        if (!studentId) {
+          throw new Error(
+            "Unable to identify the student for offline submission."
+          );
+        }
+
+        const {
+          getOfflineExamSessionForStudent,
+          saveOfflineExamSession,
+          addToOfflineSyncQueue,
+        } = await import("@/lib/offline/db");
+
+        const offlineSession =
+          await getOfflineExamSessionForStudent(
+            examId,
+            studentId
+          );
+
+        if (!offlineSession) {
+          throw new Error(
+            "Offline exam session could not be found."
+          );
+        }
+
+        const submittedAt =
+          new Date().toISOString();
+
+        const timeSpent = Math.max(
+          1,
+          Math.floor(
+            (
+              new Date(submittedAt).getTime() -
+              new Date(
+                offlineSession.startedAt
+              ).getTime()
+            ) / 1000
+          )
+        );
+
+        /*
+         * Save the local session as submitted
+         * before attempting synchronization.
+         */
+        await saveOfflineExamSession({
+          ...offlineSession,
+          status: "SUBMITTED_LOCALLY",
+          submittedAt,
+          syncStatus: "PENDING",
+          lastSyncAttemptAt: null,
+          syncError: null,
+        });
+
+        /*
+         * Add final submission to the sync queue.
+         */
+        await addToOfflineSyncQueue({
+          id: `submit-${examId}-${studentId}`,
           examId,
-          timeSpent: Math.max(1, timeSpent),
-        }),
-      });
+          studentId,
+          type: "SUBMIT_EXAM",
+          payload: {
+            examId,
+            studentId,
+            timeSpent,
+          },
+          createdAt: submittedAt,
+          attempts: 0,
+          status: "PENDING",
+          lastAttemptAt: null,
+          error: null,
+        });
+
+        /*
+         * The submission is safely stored locally.
+         */
+        localStorage.removeItem(
+          localStorageKey
+        );
+
+        /*
+         * Try synchronization immediately.
+         * If there is no connection, the queue
+         * remains available for later synchronization.
+         */
+        try {
+          const {
+            syncOfflineData,
+          } = await import("@/lib/offline/sync");
+
+          await syncOfflineData(examId);
+        } catch (syncError) {
+          console.warn(
+            "Offline submission remains queued:",
+            syncError
+          );
+        }
+
+        alert(
+          "Your paper has been submitted and saved safely on this device."
+        );
+
+        router.push("/student");
+        return;
+      }
+
+      /*
+       * NORMAL ONLINE EXAM
+       */
+      localStorage.removeItem(
+        localStorageKey
+      );
+
+      const timeSpent =
+        initialTimeLeftRef.current -
+        timeLeftRef.current;
+
+      const res = await fetch(
+        "/api/student/test/submit",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            examId,
+            timeSpent: Math.max(
+              1,
+              timeSpent
+            ),
+          }),
+        }
+      );
+
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Submission failed");
-      alert("Your paper has been submitted successfully.");
+
+      if (!res.ok) {
+        throw new Error(
+          data.error ||
+          "Submission failed"
+        );
+      }
+
+      alert(
+        "Your paper has been submitted successfully."
+      );
+
       router.push("/student");
     } catch (err: any) {
-      alert(err.message);
+      console.error(
+        "Exam submission error:",
+        err
+      );
+
+      alert(
+        err?.message ||
+        "Failed to submit exam. Please try again."
+      );
     }
   };
-
   const handleAutoSubmit = () => {
     alert("Time has expired! Your answers are being submitted automatically.");
     submitExam();
@@ -404,25 +1290,146 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
   };
 
   // Report question handler
-  const handleReportQuestion = async (e: React.FormEvent) => {
+  const handleReportQuestion = async (
+    e: React.FormEvent
+  ) => {
     e.preventDefault();
-    if (!reportReason.trim() || !reportQuestionModal) return;
+
+    if (
+      !reportReason.trim() ||
+      !reportQuestionModal
+    ) {
+      return;
+    }
+
     try {
-      const res = await fetch("/api/student/report", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          questionId: reportQuestionModal,
-          reason: reportReason,
-        }),
-      });
-      if (res.ok) {
-        alert("Thank you. The report has been filed and sent to the administrator.");
+      const offlineModeKey =
+        `cbt_exam_offline_${examId}`;
+
+      const isOfflineExam =
+        localStorage.getItem(
+          offlineModeKey
+        ) === "true";
+
+      /*
+       * ============================================================
+       * OFFLINE QUESTION REPORT
+       * ============================================================
+       *
+       * Save the report locally first.
+       * It will be synchronized with the server
+       * when internet connectivity is available.
+       */
+      if (isOfflineExam) {
+        if (!studentId) {
+          throw new Error(
+            "Unable to identify the student for this report."
+          );
+        }
+
+        const {
+          saveOfflineQuestionReport,
+          addToOfflineSyncQueue,
+        } = await import("@/lib/offline/db");
+
+        const reportId =
+          `report-${examId}-${studentId}-${reportQuestionModal}`;
+
+        const createdAt =
+          new Date().toISOString();
+
+        await saveOfflineQuestionReport({
+          id: reportId,
+          examId,
+          studentId,
+          questionId:
+            reportQuestionModal,
+          reason:
+            reportReason.trim(),
+          createdAt,
+          syncStatus: "PENDING",
+        });
+
+        await addToOfflineSyncQueue({
+          id: `question-report-${reportId}`,
+          examId,
+          studentId,
+          type: "QUESTION_REPORT",
+          payload: {
+            questionId:
+              reportQuestionModal,
+            reason:
+              reportReason.trim(),
+          },
+          createdAt,
+          attempts: 0,
+          status: "PENDING",
+          lastAttemptAt: null,
+          error: null,
+        });
+
+        alert(
+          "Your report has been saved on this device and will be sent to the administrator when the internet connection is restored."
+        );
+
         setReportQuestionModal(null);
         setReportReason("");
+
+        return;
       }
-    } catch (err) {
-      console.error(err);
+
+      /*
+       * ============================================================
+       * NORMAL ONLINE QUESTION REPORT
+       * ============================================================
+       *
+       * Existing online behavior remains unchanged.
+       */
+      const res = await fetch(
+        "/api/student/report",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            questionId:
+              reportQuestionModal,
+            reason:
+              reportReason.trim(),
+          }),
+        }
+      );
+
+      const data =
+        await res.json().catch(
+          () => ({})
+        );
+
+      if (!res.ok) {
+        throw new Error(
+          data.error ||
+          "Failed to submit question report."
+        );
+      }
+
+      alert(
+        "Thank you. The report has been filed and sent to the administrator."
+      );
+
+      setReportQuestionModal(null);
+      setReportReason("");
+    } catch (err: any) {
+      console.error(
+        "Question report error:",
+        err
+      );
+
+      alert(
+        err?.message ||
+        "Failed to submit question report. Please try again."
+      );
     }
   };
 
@@ -478,12 +1485,128 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
           </div>
 
           <button
-            onClick={() => {
-              const localStorageKey = `cbt_exam_start_${examId}`;
-              localStorage.setItem(localStorageKey, String(Date.now()));
-              setExamStarted(true);
-              if (document.documentElement.requestFullscreen) {
-                document.documentElement.requestFullscreen().then(() => setIsFullscreen(true)).catch((err) => console.log("Fullscreen request failed", err));
+            onClick={async () => {
+              try {
+                const localStorageKey =
+                  `cbt_exam_start_${examId}`;
+
+                const offlineModeKey =
+                  `cbt_exam_offline_${examId}`;
+
+                const isOfflineExam =
+                  localStorage.getItem(
+                    offlineModeKey
+                  ) === "true";
+
+                if (isOfflineExam) {
+                  /*
+                   * The offline exam must not depend on the server.
+                   * Recover the student identity from local storage.
+                   */
+                  const offlineStudentId =
+                    localStorage.getItem(
+                      "manna_cbt_student_id"
+                    );
+
+                  if (!offlineStudentId) {
+                    alert(
+                      "This device does not have a saved student identity for the offline examination. Please connect to the internet and download the package again."
+                    );
+                    return;
+                  }
+
+                  const {
+                    getExamPackageForStudent,
+                  } = await import(
+                    "@/lib/offline/db"
+                  );
+
+                  /*
+                   * Retrieve ONLY the package belonging to
+                   * this student and this examination.
+                   */
+                  const examPackage =
+                    await getExamPackageForStudent(
+                      examId,
+                      offlineStudentId
+                    );
+
+                  if (!examPackage) {
+                    alert(
+                      "No offline examination package is available for this student."
+                    );
+                    return;
+                  }
+
+                  /*
+                   * Never allow one student's package to be
+                   * started by another student.
+                   */
+                  if (
+                    examPackage.studentId !==
+                    offlineStudentId
+                  ) {
+                    alert(
+                      "This offline examination package belongs to a different student."
+                    );
+                    return;
+                  }
+
+                  /*
+                   * Create the local session ONLY now.
+                   * Downloading/preloading the package does not
+                   * start the examination timer.
+                   */
+                  await startOrResumeOfflineExamSession(
+                    examId,
+                    offlineStudentId,
+                    examPackage.id,
+                    examPackage.durationMinutes
+                  );
+
+                  /*
+                   * Keep React state synchronized with the
+                   * offline session identity.
+                   */
+                  setStudentId(
+                    offlineStudentId
+                  );
+                } else {
+                  localStorage.setItem(
+                    localStorageKey,
+                    String(Date.now())
+                  );
+                }
+
+                setExamStarted(true);
+
+                if (
+                  document.documentElement
+                    .requestFullscreen
+                ) {
+                  document.documentElement
+                    .requestFullscreen()
+                    .then(() =>
+                      setIsFullscreen(true)
+                    )
+                    .catch((err) =>
+                      console.log(
+                        "Fullscreen request failed",
+                        err
+                      )
+                    );
+                }
+              } catch (error) {
+                console.error(
+                  "Failed to start exam:",
+                  error
+                );
+
+                alert(
+                  error instanceof Error
+                    ? error.message
+                    : "Failed to start the examination."
+                );
               }
             }}
             className="w-full bg-[#1B2A6B] hover:bg-[#152052] text-white border-b-4 border-[#FFD100] hover:border-[#FFD100]/80 font-bold py-3.5 rounded-2xl shadow-lg transition active:scale-95 cursor-pointer uppercase tracking-wider text-xs font-sans"
@@ -587,11 +1710,10 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
               <div className="flex items-center gap-4">
                 {/* Monospace Countdown Timer */}
                 <div
-                  className={`font-mono text-2xl font-black tracking-widest px-4 py-1.5 border rounded-xl flex items-center gap-2 shadow-sm ${
-                    timerLow
-                      ? "bg-red-50 border-red-300 text-red-600 animate-pulse"
-                      : "bg-emerald-50 border-emerald-200 text-emerald-750"
-                  }`}
+                  className={`font-mono text-2xl font-black tracking-widest px-4 py-1.5 border rounded-xl flex items-center gap-2 shadow-sm ${timerLow
+                    ? "bg-red-50 border-red-300 text-red-600 animate-pulse"
+                    : "bg-emerald-50 border-emerald-200 text-emerald-750"
+                    }`}
                 >
                   <Clock className="w-5 h-5 animate-pulse" />
                   <span>{formatTime(timeLeft)}</span>
@@ -633,11 +1755,10 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
                     setActiveSubjectIndex(idx);
                     setActiveQuestionIndex(0);
                   }}
-                  className={`px-4 py-2 rounded-full text-xs font-bold tracking-tight transition cursor-pointer ${
-                    activeSubjectIndex === idx
-                      ? "bg-[#1B2A6B] text-white border border-[#152052] shadow-sm"
-                      : "bg-slate-50 border border-slate-200 text-slate-650 hover:bg-slate-100 hover:text-slate-900"
-                  }`}
+                  className={`px-4 py-2 rounded-full text-xs font-bold tracking-tight transition cursor-pointer ${activeSubjectIndex === idx
+                    ? "bg-[#1B2A6B] text-white border border-[#152052] shadow-sm"
+                    : "bg-slate-50 border border-slate-200 text-slate-650 hover:bg-slate-100 hover:text-slate-900"
+                    }`}
                 >
                   {sub.subjectName}
                 </button>
@@ -652,12 +1773,18 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
 
               {/* Action circle buttons */}
               <button
-                onClick={() => saveAttempt(activeQuestion.id, activeSubject.subjectId, activeAttempt.selectedOption, !activeAttempt.isFlagged)}
-                className={`w-9 h-9 border rounded-full flex items-center justify-center transition cursor-pointer shadow-sm ${
-                  activeAttempt.isFlagged
-                    ? "bg-amber-50 border-amber-300 text-amber-700"
-                    : "bg-white border-slate-200 text-slate-450 hover:text-slate-805 hover:bg-slate-50"
-                }`}
+                onClick={() =>
+                  saveAttempt(
+                    activeSubject.subjectId,
+                    activeQuestion.id,
+                    activeAttempt.selectedOption,
+                    !activeAttempt.isFlagged
+                  )
+                }
+                className={`w-9 h-9 border rounded-full flex items-center justify-center transition cursor-pointer shadow-sm ${activeAttempt.isFlagged
+                  ? "bg-amber-50 border-amber-300 text-amber-700"
+                  : "bg-white border-slate-200 text-slate-450 hover:text-slate-805 hover:bg-slate-50"
+                  }`}
                 title="Bookmark / Flag Question for Review"
               >
                 <Bookmark className="w-4 h-4" />
@@ -665,11 +1792,10 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
 
               <button
                 onClick={() => setShowCalculator(!showCalculator)}
-                className={`w-9 h-9 border rounded-full flex items-center justify-center transition cursor-pointer shadow-sm ${
-                  showCalculator
-                    ? "bg-blue-50 border-[#1B2A6B] text-[#1B2A6B]"
-                    : "bg-white border-slate-200 text-slate-455 hover:text-slate-805 hover:bg-slate-50"
-                }`}
+                className={`w-9 h-9 border rounded-full flex items-center justify-center transition cursor-pointer shadow-sm ${showCalculator
+                  ? "bg-blue-50 border-[#1B2A6B] text-[#1B2A6B]"
+                  : "bg-white border-slate-200 text-slate-455 hover:text-slate-805 hover:bg-slate-50"
+                  }`}
                 title="Calculator"
               >
                 <CalcIcon className="w-4 h-4" />
@@ -774,18 +1900,23 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
                       return (
                         <div
                           key={opt.key}
-                          onClick={() => saveAttempt(activeQuestion.id, activeSubject.subjectId, opt.key, activeAttempt.isFlagged)}
-                          className={`p-4 rounded-xl border flex items-center gap-3.5 cursor-pointer transition select-none shadow-sm ${
-                            isSelected
-                              ? "bg-blue-50 border-2 border-[#1B2A6B] text-[#1B2A6B] font-bold"
-                              : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300"
-                          }`}
+                          onClick={() =>
+                            saveAttempt(
+                              activeSubject.subjectId,
+                              activeQuestion.id,
+                              opt.key,
+                              activeAttempt.isFlagged
+                            )
+                          }
+                          className={`p-4 rounded-xl border flex items-center gap-3.5 cursor-pointer transition select-none shadow-sm ${isSelected
+                            ? "bg-blue-50 border-2 border-[#1B2A6B] text-[#1B2A6B] font-bold"
+                            : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300"
+                            }`}
                         >
                           {/* Circular radio button */}
                           <div
-                            className={`w-5 h-5 rounded-full border flex items-center justify-center flex-shrink-0 transition ${
-                              isSelected ? "border-[#1B2A6B] bg-[#1B2A6B]" : "border-slate-350 bg-white"
-                            }`}
+                            className={`w-5 h-5 rounded-full border flex items-center justify-center flex-shrink-0 transition ${isSelected ? "border-[#1B2A6B] bg-[#1B2A6B]" : "border-slate-350 bg-white"
+                              }`}
                           >
                             <div className={`w-2 h-2 rounded-full bg-[#FFD100] ${isSelected ? "block" : "hidden"}`} />
                           </div>
@@ -853,9 +1984,8 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
                     <button
                       key={b}
                       onClick={() => handleCalcBtn(b)}
-                      className={`py-3 rounded-lg cursor-pointer transition ${
-                        b === "=" ? "col-span-2 bg-[#1B2A6B] hover:bg-[#152052] text-white border-b-2 border-[#FFD100]" : "bg-slate-50 hover:bg-slate-100 text-slate-705 border border-slate-200/60"
-                      }`}
+                      className={`py-3 rounded-lg cursor-pointer transition ${b === "=" ? "col-span-2 bg-[#1B2A6B] hover:bg-[#152052] text-white border-b-2 border-[#FFD100]" : "bg-slate-50 hover:bg-slate-100 text-slate-705 border border-slate-200/60"
+                        }`}
                     >
                       {b}
                     </button>
@@ -1067,14 +2197,18 @@ export default function TestPage({ params }: { params: Promise<{ examId: string 
                 className="w-full bg-slate-50 border border-slate-200 focus:border-[#1B2A6B] focus:ring-2 focus:ring-[#1B2A6B]/15 text-slate-800 rounded-xl p-3 min-h-[100px] outline-none resize-none transition"
               />
 
-              <div className="flex justify-end gap-3 text-sm">
+              <div className="flex justify-end gap-3 mt-6">
                 <button
                   type="button"
-                  onClick={() => setReportQuestionModal(null)}
-                  className="bg-white hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-xl border border-slate-200 transition cursor-pointer font-semibold shadow-sm"
+                  onClick={() => {
+                    setReportQuestionModal(null);
+                    setReportReason("");
+                  }}
+                  className="px-5 py-2 rounded-xl transition cursor-pointer font-bold border border-gray-300 bg-white hover:bg-gray-100 text-gray-700"
                 >
                   Cancel
                 </button>
+
                 <button
                   type="submit"
                   className="bg-[#1B2A6B] hover:bg-[#152052] text-white px-5 py-2 rounded-xl transition cursor-pointer font-bold border-b-2 border-b-[#FFD100] shadow-sm"

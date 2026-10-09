@@ -20,9 +20,11 @@ import {
   ChevronLeft,
   Eye,
   EyeOff,
+  X,
   Edit,
   FileSpreadsheet,
   AlertCircle,
+  ClipboardCheck,
 } from "lucide-react";
 import MathRenderer from "@/components/MathRenderer";
 
@@ -40,6 +42,12 @@ export default function AdminDashboard() {
   const [students, setStudents] = useState<any[]>([]);
   const [exams, setExams] = useState<any[]>([]);
   const [reports, setReports] = useState<any[]>([]);
+
+  // Offline examination preparation
+  const [examPreparationExam, setExamPreparationExam] = useState<any | null>(null);
+  const [selectedPreparationStudentIds, setSelectedPreparationStudentIds] = useState<string[]>([]);
+  const [preparationError, setPreparationError] = useState("");
+
 
   // Modals state
   const [modalType, setModalType] = useState<string | null>(null);
@@ -141,7 +149,7 @@ export default function AdminDashboard() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to update CA scores");
-      
+
       setFormSuccess("CA scores updated successfully!");
       fetchData();
     } catch (err: any) {
@@ -338,13 +346,13 @@ export default function AdminDashboard() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `Failed to ${isEdit ? "update" : "create"} teacher`);
-      
+
       if (isEdit) {
         setTeachers(teachers.map((t) => (t.id === data.teacher.id ? data.teacher : t)));
       } else {
         setTeachers([...teachers, data.teacher]);
       }
-      
+
       setModalType(null);
       setEditingTeacher(null);
       setTeacherForm({ name: "", email: "", password: "", classIds: [] as string[] });
@@ -398,13 +406,13 @@ export default function AdminDashboard() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `Failed to ${isEdit ? "update" : "create"} student`);
-      
+
       if (isEdit) {
         setStudents(students.map((s) => (s.id === data.student.id ? data.student : s)));
       } else {
         setStudents([...students, data.student]);
       }
-      
+
       setModalType(null);
       setEditingStudent(null);
       setStudentForm({ name: "", rollNumber: "", classId: "", passportUrl: "" });
@@ -543,6 +551,180 @@ export default function AdminDashboard() {
     }
   };
 
+  // ============================================================
+  // OFFLINE EXAMINATION PREPARATION
+  // ============================================================
+
+  const openOfflinePreparation = (exam: any) => {
+    setPreparationError("");
+
+    setExamPreparationExam(exam);
+
+    // Start with no students selected.
+    setSelectedPreparationStudentIds([]);
+  };
+
+  const closeOfflinePreparation = () => {
+    setExamPreparationExam(null);
+    setSelectedPreparationStudentIds([]);
+    setPreparationError("");
+  };
+
+  const togglePreparationStudent = (studentId: string) => {
+    setSelectedPreparationStudentIds((current) => {
+      if (current.includes(studentId)) {
+        return current.filter((id) => id !== studentId);
+      }
+
+      return [...current, studentId];
+    });
+  };
+
+  const toggleAllPreparationStudents = () => {
+    if (!examPreparationExam) return;
+
+    const classStudents = students.filter(
+      (student: any) =>
+        (student.classId || student.class?.id) ===
+        examPreparationExam.classId
+    );
+
+    const allSelected =
+      classStudents.length > 0 &&
+      classStudents.every((student: any) =>
+        selectedPreparationStudentIds.includes(student.id)
+      );
+
+    if (allSelected) {
+      setSelectedPreparationStudentIds([]);
+    } else {
+      setSelectedPreparationStudentIds(
+        classStudents.map((student: any) => student.id)
+      );
+    }
+  };
+
+  const prepareOfflinePackages = async () => {
+    if (!examPreparationExam) {
+      return;
+    }
+
+    if (selectedPreparationStudentIds.length === 0) {
+      setPreparationError(
+        "Please select at least one student before preparing offline packages."
+      );
+      return;
+    }
+
+    setPreparationError("");
+
+    try {
+      const results = [];
+
+      for (const studentId of selectedPreparationStudentIds) {
+        try {
+          const response = await fetch(
+            "/api/staff/offline-package",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                examId: examPreparationExam.id,
+                studentId,
+              }),
+            }
+          );
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            results.push({
+              studentId,
+              success: false,
+              error:
+                data.error ||
+                "Failed to prepare offline package.",
+            });
+            continue;
+          }
+
+          results.push({
+            studentId,
+            success: true,
+            snapshotId: data.snapshotId,
+            packageVersion: data.packageVersion,
+          });
+        } catch (error: any) {
+          results.push({
+            studentId,
+            success: false,
+            error:
+              error?.message ||
+              "Network error while preparing package.",
+          });
+        }
+      }
+
+      const failed = results.filter(
+        (result) => !result.success
+      );
+
+      if (failed.length === 0) {
+        alert(
+          `Offline packages successfully prepared for ${results.length} student${results.length === 1 ? "" : "s"
+          }.`
+        );
+
+        closeOfflinePreparation();
+        return;
+      }
+
+      if (failed.length < results.length) {
+        alert(
+          `Offline packages prepared for ${results.length - failed.length
+          } student${results.length - failed.length === 1
+            ? ""
+            : "s"
+          }.\n\n${failed.length
+          } student${failed.length === 1 ? "" : "s"
+          } could not be prepared.`
+        );
+
+        setPreparationError(
+          failed
+            .map(
+              (item) =>
+                `${item.studentId}: ${item.error}`
+            )
+            .join("\n")
+        );
+
+        return;
+      }
+
+      setPreparationError(
+        failed
+          .map(
+            (item) =>
+              `${item.studentId}: ${item.error}`
+          )
+          .join("\n")
+      );
+    } catch (error: any) {
+      console.error(
+        "Offline package preparation error:",
+        error
+      );
+
+      setPreparationError(
+        error?.message ||
+        "Failed to prepare offline examination packages."
+      );
+    }
+  };
+
   // Resolve Report
   const handleResolveReport = async (id: string) => {
     try {
@@ -620,9 +802,8 @@ export default function AdminDashboard() {
 
           <button
             onClick={() => setActiveTab("analytics")}
-            className={`w-auto md:w-full flex items-center ${sidebarCollapsed ? 'md:justify-center' : 'gap-3 px-4'} py-2.5 md:py-3 px-3 md:px-4 rounded-xl text-sm font-medium transition cursor-pointer flex-shrink-0 ${
-              activeTab === "analytics" ? "bg-[#FFD100] text-[#1B2A6B] font-bold shadow-sm" : "text-slate-200 hover:bg-[#152052] hover:text-white"
-            }`}
+            className={`w-auto md:w-full flex items-center ${sidebarCollapsed ? 'md:justify-center' : 'gap-3 px-4'} py-2.5 md:py-3 px-3 md:px-4 rounded-xl text-sm font-medium transition cursor-pointer flex-shrink-0 ${activeTab === "analytics" ? "bg-[#FFD100] text-[#1B2A6B] font-bold shadow-sm" : "text-slate-200 hover:bg-[#152052] hover:text-white"
+              }`}
             title="Overview & Analytics"
           >
             <BarChart3 className="w-4.5 h-4.5 flex-shrink-0" />
@@ -631,9 +812,8 @@ export default function AdminDashboard() {
 
           <button
             onClick={() => setActiveTab("classes")}
-            className={`w-auto md:w-full flex items-center ${sidebarCollapsed ? 'md:justify-center' : 'gap-3 px-4'} py-2.5 md:py-3 px-3 md:px-4 rounded-xl text-sm font-medium transition cursor-pointer flex-shrink-0 ${
-              activeTab === "classes" ? "bg-[#FFD100] text-[#1B2A6B] font-bold shadow-sm" : "text-slate-200 hover:bg-[#152052] hover:text-white"
-            }`}
+            className={`w-auto md:w-full flex items-center ${sidebarCollapsed ? 'md:justify-center' : 'gap-3 px-4'} py-2.5 md:py-3 px-3 md:px-4 rounded-xl text-sm font-medium transition cursor-pointer flex-shrink-0 ${activeTab === "classes" ? "bg-[#FFD100] text-[#1B2A6B] font-bold shadow-sm" : "text-slate-200 hover:bg-[#152052] hover:text-white"
+              }`}
             title="Classes & Subjects"
           >
             <Layers className="w-4.5 h-4.5 flex-shrink-0" />
@@ -642,9 +822,8 @@ export default function AdminDashboard() {
 
           <button
             onClick={() => setActiveTab("teachers")}
-            className={`w-auto md:w-full flex items-center ${sidebarCollapsed ? 'md:justify-center' : 'gap-3 px-4'} py-2.5 md:py-3 px-3 md:px-4 rounded-xl text-sm font-medium transition cursor-pointer flex-shrink-0 ${
-              activeTab === "teachers" ? "bg-[#FFD100] text-[#1B2A6B] font-bold shadow-sm" : "text-slate-200 hover:bg-[#152052] hover:text-white"
-            }`}
+            className={`w-auto md:w-full flex items-center ${sidebarCollapsed ? 'md:justify-center' : 'gap-3 px-4'} py-2.5 md:py-3 px-3 md:px-4 rounded-xl text-sm font-medium transition cursor-pointer flex-shrink-0 ${activeTab === "teachers" ? "bg-[#FFD100] text-[#1B2A6B] font-bold shadow-sm" : "text-slate-200 hover:bg-[#152052] hover:text-white"
+              }`}
             title="Teachers & Students"
           >
             <Users className="w-4.5 h-4.5 flex-shrink-0" />
@@ -653,31 +832,43 @@ export default function AdminDashboard() {
 
           <button
             onClick={() => setActiveTab("exams")}
-            className={`w-auto md:w-full flex items-center ${sidebarCollapsed ? 'md:justify-center' : 'gap-3 px-4'} py-2.5 md:py-3 px-3 md:px-4 rounded-xl text-sm font-medium transition cursor-pointer flex-shrink-0 ${
-              activeTab === "exams" ? "bg-[#FFD100] text-[#1B2A6B] font-bold shadow-sm" : "text-slate-200 hover:bg-[#152052] hover:text-white"
-            }`}
+            className={`w-auto md:w-full flex items-center ${sidebarCollapsed ? 'md:justify-center' : 'gap-3 px-4'} py-2.5 md:py-3 px-3 md:px-4 rounded-xl text-sm font-medium transition cursor-pointer flex-shrink-0 ${activeTab === "exams" ? "bg-[#FFD100] text-[#1B2A6B] font-bold shadow-sm" : "text-slate-200 hover:bg-[#152052] hover:text-white"
+              }`}
             title="Exams Scheduler"
           >
             <Calendar className="w-4.5 h-4.5 flex-shrink-0" />
             <span className={sidebarCollapsed ? "inline md:hidden" : ""}>Exams Scheduler</span>
           </button>
 
+          <div className="sidebar-section-label">Examinations</div>
+
           <button
-            onClick={() => setActiveTab("ca")}
-            className={`w-auto md:w-full flex items-center ${sidebarCollapsed ? 'md:justify-center' : 'gap-3 px-4'} py-2.5 md:py-3 px-3 md:px-4 rounded-xl text-sm font-medium transition cursor-pointer flex-shrink-0 ${
-              activeTab === "ca" ? "bg-[#FFD100] text-[#1B2A6B] font-bold shadow-sm" : "text-slate-200 hover:bg-[#152052] hover:text-white"
-            }`}
-            title="CA & Exam Scores"
+            onClick={() => setActiveTab("examination-control")}
+            className={`w-auto md:w-full flex items-center ${sidebarCollapsed
+              ? "md:justify-center"
+              : "gap-3 px-4"
+              } py-2.5 md:py-3 px-3 md:px-4 rounded-xl text-sm font-medium transition cursor-pointer flex-shrink-0 ${activeTab === "examination-control"
+                ? "bg-[#FFD100] text-[#1B2A6B] font-bold shadow-sm"
+                : "text-slate-200 hover:bg-[#152052] hover:text-white"
+              }`}
+            title="Examination Control"
           >
-            <FileSpreadsheet className="w-4.5 h-4.5 flex-shrink-0" />
-            <span className={sidebarCollapsed ? "inline md:hidden" : ""}>CA & Exam Scores</span>
+            <ClipboardCheck className="w-4.5 h-4.5 flex-shrink-0" />
+            <span
+              className={
+                sidebarCollapsed
+                  ? "inline md:hidden"
+                  : ""
+              }
+            >
+              Examination Control
+            </span>
           </button>
 
           <button
             onClick={() => setActiveTab("reports")}
-            className={`w-auto md:w-full flex items-center ${sidebarCollapsed ? 'md:justify-center' : 'gap-3 px-4'} py-2.5 md:py-3 px-3 md:px-4 rounded-xl text-sm font-medium transition cursor-pointer flex-shrink-0 ${
-              activeTab === "reports" ? "bg-[#FFD100] text-[#1B2A6B] font-bold shadow-sm" : "text-slate-200 hover:bg-[#152052] hover:text-white"
-            }`}
+            className={`w-auto md:w-full flex items-center ${sidebarCollapsed ? 'md:justify-center' : 'gap-3 px-4'} py-2.5 md:py-3 px-3 md:px-4 rounded-xl text-sm font-medium transition cursor-pointer flex-shrink-0 ${activeTab === "reports" ? "bg-[#FFD100] text-[#1B2A6B] font-bold shadow-sm" : "text-slate-200 hover:bg-[#152052] hover:text-white"
+              }`}
             title="Flagged Reports"
           >
             <div className="flex items-center gap-3 w-full">
@@ -1125,15 +1316,14 @@ export default function AdminDashboard() {
                             </td>
                             <td className="py-4">
                               <span
-                                className={`text-xs px-2.5 py-1 rounded-full border font-semibold ${
-                                  ex.status === "LIVE"
-                                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-                                    : ex.status === "SCHEDULED"
+                                className={`text-xs px-2.5 py-1 rounded-full border font-semibold ${ex.status === "LIVE"
+                                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                                  : ex.status === "SCHEDULED"
                                     ? "bg-blue-500/10 border-blue-500/30 text-blue-400"
                                     : ex.status === "CLOSED"
-                                    ? "bg-zinc-500/10 border-zinc-500/30 text-zinc-450"
-                                    : "bg-orange-500/10 border-orange-500/30 text-orange-400"
-                                }`}
+                                      ? "bg-zinc-500/10 border-zinc-500/30 text-zinc-450"
+                                      : "bg-orange-500/10 border-orange-500/30 text-orange-400"
+                                  }`}
                               >
                                 {ex.status}
                               </span>
@@ -1178,6 +1368,297 @@ export default function AdminDashboard() {
             </div>
           )}
 
+          {/* TAB: EXAMINATION CONTROL */}
+          {activeTab === "examination-control" && (
+            <div className="space-y-6">
+
+              {/* Header */}
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-bold text-slate-800">
+                    Examination Control
+                  </h2>
+
+                  <p className="text-slate-400 text-sm mt-1">
+                    Central control for scheduled examinations and offline
+                    examination preparation.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#1B2A6B]/10 border border-[#1B2A6B]/20">
+                    <ClipboardCheck className="w-4 h-4 text-[#1B2A6B]" />
+
+                    <span className="text-xs font-bold text-[#1B2A6B]">
+                      Administrator Control
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Information Banner */}
+              <div className="bg-[#1B2A6B] rounded-2xl p-5 text-white shadow-sm">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-[#FFD100] flex items-center justify-center flex-shrink-0">
+                    <ClipboardCheck className="w-5 h-5 text-[#1B2A6B]" />
+                  </div>
+
+                  <div>
+                    <h3 className="font-bold text-sm">
+                      Examination Preparation Centre
+                    </h3>
+
+                    <p className="text-white/75 text-xs leading-relaxed mt-1 max-w-3xl">
+                      Teachers create questions and schedule examinations.
+                      The administrator takes control from this point by
+                      reviewing the examination and preparing the offline
+                      examination packages for the students.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Examination List */}
+              <div className="bg-white border border-slate-200 shadow-sm rounded-2xl p-6">
+
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
+
+                  <div>
+                    <h3 className="text-base font-bold text-slate-800">
+                      All Examinations
+                    </h3>
+
+                    <p className="text-xs text-slate-400 mt-1">
+                      Examinations created and scheduled by teachers appear here.
+                    </p>
+                  </div>
+
+                  <div className="px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200">
+                    <span className="text-xs font-bold text-slate-600">
+                      {exams.length}{" "}
+                      {exams.length === 1 ? "Examination" : "Examinations"}
+                    </span>
+                  </div>
+
+                </div>
+
+                {exams.length === 0 ? (
+
+                  /* Empty state */
+                  <div className="py-14 text-center border border-dashed border-slate-200 rounded-2xl">
+
+                    <div className="w-14 h-14 mx-auto rounded-2xl bg-slate-50 flex items-center justify-center mb-4">
+                      <ClipboardCheck className="w-7 h-7 text-slate-300" />
+                    </div>
+
+                    <h4 className="font-bold text-slate-600">
+                      No examinations available
+                    </h4>
+
+                    <p className="text-xs text-slate-400 mt-1">
+                      Scheduled examinations will appear here automatically.
+                    </p>
+
+                  </div>
+
+                ) : (
+
+                  <div className="space-y-4">
+
+                    {exams.map((ex: any) => (
+
+                      <div
+                        key={ex.id}
+                        className="border border-slate-200 rounded-2xl p-5 hover:border-[#1B2A6B]/30 hover:shadow-sm transition"
+                      >
+
+                        {/* Top row */}
+                        <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-5">
+
+                          {/* Exam information */}
+                          <div className="min-w-0">
+
+                            <div className="flex items-center gap-3 flex-wrap">
+
+                              <h4 className="font-bold text-slate-800 text-base">
+                                {ex.title}
+                              </h4>
+
+                              <span
+                                className={`text-[11px] px-2.5 py-1 rounded-full border font-bold ${ex.status === "LIVE"
+                                  ? "bg-emerald-50 border-emerald-200 text-emerald-600"
+                                  : ex.status === "SCHEDULED"
+                                    ? "bg-blue-50 border-blue-200 text-blue-600"
+                                    : ex.status === "CLOSED"
+                                      ? "bg-slate-100 border-slate-200 text-slate-500"
+                                      : "bg-orange-50 border-orange-200 text-orange-600"
+                                  }`}
+                              >
+                                {ex.status}
+                              </span>
+
+                            </div>
+
+                            {/* Metadata */}
+                            <div className="flex flex-wrap gap-x-6 gap-y-2 mt-3">
+
+                              <div>
+                                <span className="text-[11px] text-slate-400 block">
+                                  CLASS
+                                </span>
+
+                                <span className="text-xs font-semibold text-slate-700">
+                                  {ex.class
+                                    ? `${ex.class.name} ${ex.class.arm || ""}`
+                                    : "N/A"}
+                                </span>
+                              </div>
+
+                              <div>
+                                <span className="text-[11px] text-slate-400 block">
+                                  DATE
+                                </span>
+
+                                <span className="text-xs font-semibold text-slate-700">
+                                  {ex.startTime
+                                    ? new Date(
+                                      ex.startTime
+                                    ).toLocaleDateString("en-US", {
+                                      month: "short",
+                                      day: "numeric",
+                                      year: "numeric",
+                                    })
+                                    : "N/A"}
+                                </span>
+                              </div>
+
+                              <div>
+                                <span className="text-[11px] text-slate-400 block">
+                                  DURATION
+                                </span>
+
+                                <span className="text-xs font-semibold text-slate-700">
+                                  {ex.durationMinutes} minutes
+                                </span>
+                              </div>
+
+                              <div>
+                                <span className="text-[11px] text-slate-400 block">
+                                  SUBJECTS
+                                </span>
+
+                                <span className="text-xs font-semibold text-slate-700">
+                                  {ex.examSubjects?.length || 0}
+                                </span>
+                              </div>
+
+                            </div>
+
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingExamId(ex.id);
+
+                                setExamForm({
+                                  title: ex.title,
+                                  classId: ex.classId,
+                                  date: ex.startTime
+                                    ? new Date(ex.startTime)
+                                      .toISOString()
+                                      .split("T")[0]
+                                    : "",
+                                  durationMinutes: String(
+                                    ex.durationMinutes
+                                  ),
+                                  status: ex.status,
+                                  subjects:
+                                    ex.examSubjects?.map(
+                                      (es: any) => ({
+                                        subjectId: es.subjectId,
+                                        numberOfQuestions: String(
+                                          es.numberOfQuestions
+                                        ),
+                                      })
+                                    ) || [],
+                                });
+
+                                setModalType("exam");
+                              }}
+                              className="px-3.5 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-bold transition"
+                            >
+                              Review Exam
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => openOfflinePreparation(ex)}
+                              className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#1B2A6B] hover:bg-[#152052] text-white text-xs font-bold transition shadow-sm"
+                            >
+                              <ClipboardCheck className="w-4 h-4" />
+
+                              Prepare Offline Packages
+                            </button>
+
+                          </div>
+
+                        </div>
+
+                        {/* Subjects */}
+                        {ex.examSubjects &&
+                          ex.examSubjects.length > 0 && (
+
+                            <div className="mt-5 pt-4 border-t border-slate-100">
+
+                              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+                                Examination Subjects
+                              </div>
+
+                              <div className="flex flex-wrap gap-2">
+
+                                {ex.examSubjects.map(
+                                  (es: any) => (
+
+                                    <div
+                                      key={es.subjectId}
+                                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200"
+                                    >
+
+                                      <span className="text-xs font-semibold text-slate-700">
+                                        {es.subject?.name || "Subject"}
+                                      </span>
+
+                                      <span className="text-[10px] text-slate-400">
+                                        {es.numberOfQuestions} questions
+                                      </span>
+
+                                    </div>
+
+                                  )
+                                )}
+
+                              </div>
+
+                            </div>
+
+                          )}
+
+                      </div>
+
+                    ))}
+
+                  </div>
+
+                )}
+
+              </div>
+
+            </div>
+          )}
           {/* TAB: CA & EXAM SCORES */}
           {activeTab === "ca" && (
             <div className="space-y-6">
@@ -1383,11 +1864,10 @@ export default function AdminDashboard() {
                             <td className="py-4 text-slate-500 font-medium">{rep.reason}</td>
                             <td className="py-4">
                               <span
-                                className={`text-[10px] px-2 py-0.5 rounded border font-semibold ${
-                                  rep.status === "OPEN"
-                                    ? "bg-red-500/10 border-red-500/20 text-red-400"
-                                    : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
-                                }`}
+                                className={`text-[10px] px-2 py-0.5 rounded border font-semibold ${rep.status === "OPEN"
+                                  ? "bg-red-500/10 border-red-500/20 text-red-400"
+                                  : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                                  }`}
                               >
                                 {rep.status}
                               </span>
@@ -1425,10 +1905,10 @@ export default function AdminDashboard() {
                 {modalType === "student" && editingStudent
                   ? "Edit Student Details"
                   : modalType === "teacher" && editingTeacher
-                  ? "Edit Teacher Details"
-                  : modalType === "exam" && editingExamId
-                  ? "Edit Exam Session"
-                  : `Create New ${modalType === "exam" ? "Exam Session" : modalType}`}
+                    ? "Edit Teacher Details"
+                    : modalType === "exam" && editingExamId
+                      ? "Edit Exam Session"
+                      : `Create New ${modalType === "exam" ? "Exam Session" : modalType}`}
               </h3>
             </div>
 
@@ -1443,12 +1923,12 @@ export default function AdminDashboard() {
                 modalType === "class"
                   ? handleAddClass
                   : modalType === "subject"
-                  ? handleAddSubject
-                  : modalType === "teacher"
-                  ? handleAddTeacher
-                  : modalType === "student"
-                  ? handleAddStudent
-                  : handleAddExam
+                    ? handleAddSubject
+                    : modalType === "teacher"
+                      ? handleAddTeacher
+                      : modalType === "student"
+                        ? handleAddStudent
+                        : handleAddExam
               }
               className="p-6 space-y-4 max-h-[70vh] overflow-y-auto"
             >
@@ -1822,6 +2302,311 @@ export default function AdminDashboard() {
               </div>
             </form>
           </div>
+        </div>
+      )}
+      {/* ============================================================
+    OFFLINE EXAMINATION - STUDENT SELECTION
+============================================================ */}
+
+      {examPreparationExam && (
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+
+          <div className="w-full max-w-4xl max-h-[90vh] bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+
+            {/* Header */}
+            <div className="bg-[#1B2A6B] text-white px-6 py-5 flex items-center justify-between">
+
+              <div>
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-xl bg-[#FFD100] text-[#1B2A6B] flex items-center justify-center">
+                    <ClipboardCheck className="w-6 h-6" />
+                  </div>
+
+                  <div>
+                    <h2 className="text-xl font-bold">
+                      Prepare Offline Examination
+                    </h2>
+
+                    <p className="text-blue-100 text-sm mt-0.5">
+                      Select the students who will take this examination offline.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeOfflinePreparation}
+                className="w-10 h-10 rounded-xl hover:bg-white/10 flex items-center justify-center transition cursor-pointer"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+            </div>
+
+            {/* Examination information */}
+            <div className="px-6 py-5 border-b border-slate-200 bg-slate-50">
+
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    Examination
+                  </p>
+
+                  <p className="font-bold text-[#1B2A6B] mt-1">
+                    {examPreparationExam.title}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    Class
+                  </p>
+
+                  <p className="font-bold text-slate-700 mt-1">
+                    {examPreparationExam.class?.name || "Class"}
+                    {examPreparationExam.class?.arm
+                      ? ` ${examPreparationExam.class.arm}`
+                      : ""}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    Duration
+                  </p>
+
+                  <p className="font-bold text-slate-700 mt-1">
+                    {examPreparationExam.durationMinutes} minutes
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    Selected
+                  </p>
+
+                  <p className="font-bold text-[#1B2A6B] mt-1">
+                    {selectedPreparationStudentIds.length}
+                  </p>
+                </div>
+
+              </div>
+
+            </div>
+
+            {/* Student list */}
+            <div className="flex-1 overflow-y-auto px-6 py-5">
+
+              {(() => {
+                const classStudents = students.filter(
+                  (student: any) =>
+                    (student.classId || student.class?.id) ===
+                    examPreparationExam.classId
+                );
+
+                const allSelected =
+                  classStudents.length > 0 &&
+                  classStudents.every((student: any) =>
+                    selectedPreparationStudentIds.includes(student.id)
+                  );
+
+                if (classStudents.length === 0) {
+                  return (
+                    <div className="py-16 text-center">
+
+                      <Users className="w-12 h-12 mx-auto text-slate-300" />
+
+                      <h3 className="mt-4 font-bold text-slate-700">
+                        No Students Found
+                      </h3>
+
+                      <p className="text-sm text-slate-400 mt-1">
+                        There are currently no students assigned to this class.
+                      </p>
+
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-4">
+
+                    {/* Select all */}
+                    <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3">
+
+                      <label className="flex items-center gap-3 cursor-pointer">
+
+                        <input
+                          type="checkbox"
+                          checked={allSelected}
+                          onChange={toggleAllPreparationStudents}
+                          className="w-5 h-5 accent-[#1B2A6B] cursor-pointer"
+                        />
+
+                        <span className="font-bold text-slate-700">
+                          Select All Students
+                        </span>
+
+                      </label>
+
+                      <span className="text-sm text-slate-500">
+                        {classStudents.length} student
+                        {classStudents.length !== 1 ? "s" : ""}
+                      </span>
+
+                    </div>
+
+                    {/* Students */}
+                    <div className="border border-slate-200 rounded-2xl overflow-hidden">
+
+                      {classStudents.map(
+                        (student: any, index: number) => {
+
+                          const isSelected =
+                            selectedPreparationStudentIds.includes(
+                              student.id
+                            );
+
+                          return (
+                            <label
+                              key={student.id}
+                              className={`flex items-center gap-4 px-4 py-4 cursor-pointer transition ${isSelected
+                                ? "bg-blue-50"
+                                : "bg-white hover:bg-slate-50"
+                                } ${index !== classStudents.length - 1
+                                  ? "border-b border-slate-100"
+                                  : ""
+                                }`}
+                            >
+
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() =>
+                                  togglePreparationStudent(
+                                    student.id
+                                  )
+                                }
+                                className="w-5 h-5 accent-[#1B2A6B] cursor-pointer flex-shrink-0"
+                              />
+
+                              {student.passportUrl ? (
+                                <img
+                                  src={student.passportUrl}
+                                  alt=""
+                                  className="w-10 h-10 rounded-full object-cover border border-slate-200"
+                                />
+                              ) : (
+                                <div className="w-10 h-10 rounded-full bg-[#1B2A6B] text-white flex items-center justify-center font-bold">
+                                  {(student.name || "?")
+                                    .charAt(0)
+                                    .toUpperCase()}
+                                </div>
+                              )}
+
+                              <div className="flex-1 min-w-0">
+
+                                <p className="font-semibold text-slate-800 truncate">
+                                  {student.name}
+                                </p>
+
+                                <div className="flex items-center gap-3 mt-0.5">
+
+                                  {student.rollNumber && (
+                                    <span className="text-xs text-slate-400">
+                                      Roll No: {student.rollNumber}
+                                    </span>
+                                  )}
+
+                                  {student.admissionNumber && (
+                                    <span className="text-xs text-slate-400">
+                                      {student.admissionNumber}
+                                    </span>
+                                  )}
+
+                                </div>
+
+                              </div>
+
+                              {isSelected && (
+                                <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+                              )}
+
+                            </label>
+                          );
+                        }
+                      )}
+
+                    </div>
+
+                  </div>
+                );
+              })()}
+
+            </div>
+
+            {/* Error */}
+            {preparationError && (
+              <div className="mx-6 mb-4 bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">
+                {preparationError}
+              </div>
+            )}
+
+            {/* Footer */}
+            <div className="border-t border-slate-200 px-6 py-4 bg-white flex flex-col sm:flex-row items-center justify-between gap-3">
+
+              <div className="text-sm text-slate-500">
+
+                {selectedPreparationStudentIds.length === 0 ? (
+                  <span>
+                    Select at least one student to continue.
+                  </span>
+                ) : (
+                  <span>
+                    <strong className="text-[#1B2A6B]">
+                      {selectedPreparationStudentIds.length}
+                    </strong>{" "}
+                    student
+                    {selectedPreparationStudentIds.length !== 1
+                      ? "s"
+                      : ""}{" "}
+                    selected.
+                  </span>
+                )}
+
+              </div>
+
+              <div className="flex items-center gap-3">
+
+                <button
+                  type="button"
+                  onClick={closeOfflinePreparation}
+                  className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  disabled={
+                    selectedPreparationStudentIds.length === 0
+                  }
+                  onClick={prepareOfflinePackages}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#1B2A6B] text-white font-semibold hover:bg-[#152052] disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+                >
+                  <ClipboardCheck className="w-4 h-4" />
+                  Prepare Selected Students
+                </button>
+
+              </div>
+
+            </div>
+
+          </div>
+
         </div>
       )}
     </div>

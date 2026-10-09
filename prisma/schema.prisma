@@ -201,3 +201,43 @@ model SubjectScore {
 
   @@unique([studentId, subjectId])
 }
+
+model OfflineExamSnapshot {
+  id              String   @id @default(uuid())
+  examId          String
+  studentId       String
+  packageVersion  Int      @default(1)
+
+  examTitle       String
+  durationMinutes Int
+  startTime       DateTime
+  endTime         DateTime
+  assessmentType  String
+
+  snapshotHash    String
+  snapshot        Json
+
+  frozenAt        DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([examId, studentId])
+  @@index([examId])
+  @@index([studentId])
+}
+model OfflineProctorEvent {
+  id             String   @id @default(uuid())
+  examId         String
+  studentId      String
+  eventType      String
+  eventTimestamp DateTime
+  sequenceNumber Int
+  metadata       Json?
+
+  createdAt      DateTime @default(now())
+
+  @@unique([examId, studentId, sequenceNumber])
+  @@index([examId])
+  @@index([studentId])
+  @@index([examId, studentId])
+}

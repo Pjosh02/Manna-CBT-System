@@ -60,6 +60,17 @@ export async function GET(
       where: { examId },
     });
 
+    const offlineSnapshots =
+      await prisma.offlineExamSnapshot.findMany({
+        where: { examId },
+        select: {
+          studentId: true,
+          id: true,
+          packageVersion: true,
+          frozenAt: true,
+        },
+      });
+
     const sessionsMap = sessions.reduce((acc: any, s: any) => {
       acc[s.studentId] = s;
       return acc;
@@ -70,9 +81,17 @@ export async function GET(
       return acc;
     }, {});
 
+    const offlineSnapshotsMap =
+      offlineSnapshots.reduce((acc: any, snapshot: any) => {
+        acc[snapshot.studentId] = snapshot;
+        return acc;
+      }, {});
+
     const proctorList = students.map((student: any) => {
       const session = sessionsMap[student.id];
       const result = resultsMap[student.id];
+      const offlineSnapshot =
+        offlineSnapshotsMap[student.id];
 
       let liveStatus = "NOT_STARTED";
       let tabSwitches = 0;
@@ -90,22 +109,52 @@ export async function GET(
           liveStatus = "SUBMITTED";
         } else {
           // Check if pinged within the last 30 seconds
-          const isOnline = Date.now() - new Date(session.lastPing).getTime() < 30000;
-          liveStatus = isOnline ? "ONLINE" : "OFFLINE";
+          const isOnline =
+            Date.now() -
+            new Date(session.lastPing).getTime() <
+            30000;
+
+          liveStatus = isOnline
+            ? "ONLINE"
+            : "OFFLINE";
         }
       }
 
       return {
         studentId: student.id,
         name: student.name,
-        rollNumber: student.rollNumber || student.email || "N/A",
+
+        offlinePackage: Boolean(
+          offlineSnapshot
+        ),
+
+        offlineSnapshotId:
+          offlineSnapshot?.id ?? null,
+
+        offlinePackageVersion:
+          offlineSnapshot?.packageVersion ?? null,
+
+        offlineFrozenAt:
+          offlineSnapshot?.frozenAt ?? null,
+
+        rollNumber:
+          student.rollNumber ||
+          student.email ||
+          "N/A",
+
         status: liveStatus,
         tabSwitches,
         ipAddress,
         userAgent,
         lastActive,
-        score: result ? result.score : null,
-        totalQuestions: result ? result.totalQuestions : null,
+
+        score: result
+          ? result.score
+          : null,
+
+        totalQuestions: result
+          ? result.totalQuestions
+          : null,
       };
     });
 
@@ -114,6 +163,7 @@ export async function GET(
       durationMinutes: exam.durationMinutes,
       students: proctorList,
     });
+
   } catch (error: any) {
     console.error("GET proctor error:", error);
     return NextResponse.json({ error: "Failed to load proctor list" }, { status: 500 });
@@ -279,7 +329,7 @@ export async function POST(
 
           if (caField && totalQuestionsCount > 0) {
             const scaledScore = Math.round((correctAnswersCount / totalQuestionsCount) * maxScore * 100) / 100;
-            
+
             // Update subject-specific scores
             for (const es of exam.examSubjects) {
               await prisma.subjectScore.upsert({

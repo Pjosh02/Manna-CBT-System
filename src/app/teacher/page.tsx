@@ -135,7 +135,7 @@ export default function TeacherDashboard() {
     try {
       const subjectName = selectedPanelForSchedule.subjectName;
       const assessmentType = selectedPanelForSchedule.assessmentType;
-      
+
       const payload = {
         title: `${subjectName} — ${assessmentType}`,
         classId: selectedClassId,
@@ -223,7 +223,7 @@ export default function TeacherDashboard() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to update CA scores");
-      
+
       setFormSuccess("CA scores updated successfully!");
       fetchClassData(selectedClassId);
     } catch (err: any) {
@@ -262,7 +262,7 @@ export default function TeacherDashboard() {
       setFormSubmitting(false);
     }
   };
-  
+
   const filteredQuestions = questions.filter((q) => {
     if (selectedSubjectId && q.subjectId !== selectedSubjectId) return false;
     return true;
@@ -290,7 +290,7 @@ export default function TeacherDashboard() {
 
       setStudents(studentsData.students || []);
       setQuestions(questionsData.questions || []);
-      
+
       const classSubjects = (subjectsData.subjects || []).filter((sub: any) =>
         sub.classes?.some((c: any) => c.id === classIdToFetch)
       );
@@ -323,26 +323,26 @@ export default function TeacherDashboard() {
           return;
         }
         setUser(sessionData.user);
-        
+
         const userClasses = sessionData.user.classes || [];
-        
+
         let initialClassId = "";
         if (typeof window !== "undefined") {
           const params = new URLSearchParams(window.location.search);
           initialClassId = params.get("classId") || "";
         }
-        
+
         if (!initialClassId) {
           const savedClassId = localStorage.getItem("teacher_selected_class_id");
           if (savedClassId && userClasses.some((c: any) => c.id === savedClassId)) {
             initialClassId = savedClassId;
           }
         }
-        
+
         if (!initialClassId) {
           initialClassId = sessionData.user.classId || (userClasses.length > 0 ? userClasses[0].id : "");
         }
-        
+
         setSelectedClassId(initialClassId);
         if (initialClassId) {
           localStorage.setItem("teacher_selected_class_id", initialClassId);
@@ -456,13 +456,13 @@ export default function TeacherDashboard() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `Failed to ${isEdit ? "update" : "add"} student`);
-      
+
       if (isEdit) {
         setStudents(students.map((s) => (s.id === data.student.id ? data.student : s)));
       } else {
         setStudents([...students, data.student]);
       }
-      
+
       setModalType(null);
       setEditingStudent(null);
       setStudentForm({ name: "", rollNumber: "", passportUrl: "" });
@@ -666,7 +666,7 @@ export default function TeacherDashboard() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to toggle results visibility");
-      
+
       setExams(exams.map((ex) => (ex.id === id ? { ...ex, resultsReleased: data.exam.resultsReleased } : ex)));
       setResults((prev) => prev.map((r) => r.exam.id === id ? { ...r, exam: { ...r.exam, resultsReleased: data.exam.resultsReleased } } : r));
     } catch (err: any) {
@@ -753,9 +753,8 @@ export default function TeacherDashboard() {
 
           <button
             onClick={() => setActiveTab("roster")}
-            className={`w-auto md:w-full flex items-center ${sidebarCollapsed ? 'md:justify-center' : 'gap-3 px-4'} py-2.5 md:py-3 px-3 md:px-4 rounded-xl text-sm font-medium transition cursor-pointer flex-shrink-0 ${
-              activeTab === "roster" ? "bg-[#FFD100] text-[#1B2A6B] font-bold shadow-sm" : "text-slate-200 hover:bg-[#152052] hover:text-white"
-            }`}
+            className={`w-auto md:w-full flex items-center ${sidebarCollapsed ? 'md:justify-center' : 'gap-3 px-4'} py-2.5 md:py-3 px-3 md:px-4 rounded-xl text-sm font-medium transition cursor-pointer flex-shrink-0 ${activeTab === "roster" ? "bg-[#FFD100] text-[#1B2A6B] font-bold shadow-sm" : "text-slate-200 hover:bg-[#152052] hover:text-white"
+              }`}
             title="Class Roster"
           >
             <Users className="w-4.5 h-4.5 flex-shrink-0" />
@@ -764,9 +763,8 @@ export default function TeacherDashboard() {
 
           <button
             onClick={() => setActiveTab("questions")}
-            className={`w-auto md:w-full flex items-center ${sidebarCollapsed ? 'md:justify-center' : 'gap-3 px-4'} py-2.5 md:py-3 px-3 md:px-4 rounded-xl text-sm font-medium transition cursor-pointer flex-shrink-0 ${
-              activeTab === "questions" ? "bg-[#FFD100] text-[#1B2A6B] font-bold shadow-sm" : "text-slate-200 hover:bg-[#152052] hover:text-white"
-            }`}
+            className={`w-auto md:w-full flex items-center ${sidebarCollapsed ? 'md:justify-center' : 'gap-3 px-4'} py-2.5 md:py-3 px-3 md:px-4 rounded-xl text-sm font-medium transition cursor-pointer flex-shrink-0 ${activeTab === "questions" ? "bg-[#FFD100] text-[#1B2A6B] font-bold shadow-sm" : "text-slate-200 hover:bg-[#152052] hover:text-white"
+              }`}
             title="Questions Bank"
           >
             <BookOpen className="w-4.5 h-4.5 flex-shrink-0" />
@@ -777,9 +775,8 @@ export default function TeacherDashboard() {
 
           <button
             onClick={() => setActiveTab("subjects")}
-            className={`w-auto md:w-full flex items-center ${sidebarCollapsed ? 'md:justify-center' : 'gap-3 px-4'} py-2.5 md:py-3 px-3 md:px-4 rounded-xl text-sm font-medium transition cursor-pointer flex-shrink-0 ${
-              activeTab === "subjects" ? "bg-[#FFD100] text-[#1B2A6B] font-bold shadow-sm" : "text-slate-200 hover:bg-[#152052] hover:text-white"
-            }`}
+            className={`w-auto md:w-full flex items-center ${sidebarCollapsed ? 'md:justify-center' : 'gap-3 px-4'} py-2.5 md:py-3 px-3 md:px-4 rounded-xl text-sm font-medium transition cursor-pointer flex-shrink-0 ${activeTab === "subjects" ? "bg-[#FFD100] text-[#1B2A6B] font-bold shadow-sm" : "text-slate-200 hover:bg-[#152052] hover:text-white"
+              }`}
             title="Class Subjects"
           >
             <BookOpen className="w-4.5 h-4.5 flex-shrink-0" />
@@ -788,9 +785,8 @@ export default function TeacherDashboard() {
 
           <button
             onClick={() => setActiveTab("ca")}
-            className={`w-auto md:w-full flex items-center ${sidebarCollapsed ? 'md:justify-center' : 'gap-3 px-4'} py-2.5 md:py-3 px-3 md:px-4 rounded-xl text-sm font-medium transition cursor-pointer flex-shrink-0 ${
-              activeTab === "ca" ? "bg-[#FFD100] text-[#1B2A6B] font-bold shadow-sm" : "text-slate-200 hover:bg-[#152052] hover:text-white"
-            }`}
+            className={`w-auto md:w-full flex items-center ${sidebarCollapsed ? 'md:justify-center' : 'gap-3 px-4'} py-2.5 md:py-3 px-3 md:px-4 rounded-xl text-sm font-medium transition cursor-pointer flex-shrink-0 ${activeTab === "ca" ? "bg-[#FFD100] text-[#1B2A6B] font-bold shadow-sm" : "text-slate-200 hover:bg-[#152052] hover:text-white"
+              }`}
             title="CA & Exam Scores"
           >
             <FileSpreadsheet className="w-4.5 h-4.5 flex-shrink-0" />
@@ -798,10 +794,24 @@ export default function TeacherDashboard() {
           </button>
 
           <button
+            onClick={() => setActiveTab("exams")}
+            className={`w-auto md:w-full flex items-center ${sidebarCollapsed ? "md:justify-center" : "gap-3 px-4"
+              } py-2.5 md:py-3 px-3 md:px-4 rounded-xl text-sm font-medium transition cursor-pointer flex-shrink-0 ${activeTab === "exams"
+                ? "bg-[#FFD100] text-[#1B2A6B] font-bold shadow-sm"
+                : "text-slate-200 hover:bg-[#152052] hover:text-white"
+              }`}
+            title="Exams & Live Monitoring"
+          >
+            <Eye className="w-4.5 h-4.5 flex-shrink-0" />
+            <span className={sidebarCollapsed ? "inline md:hidden" : ""}>
+              Exams & Monitoring ({exams.length})
+            </span>
+          </button>
+
+          <button
             onClick={() => setActiveTab("results")}
-            className={`w-auto md:w-full flex items-center ${sidebarCollapsed ? 'md:justify-center' : 'gap-3 px-4'} py-2.5 md:py-3 px-3 md:px-4 rounded-xl text-sm font-medium transition cursor-pointer flex-shrink-0 ${
-              activeTab === "results" ? "bg-[#FFD100] text-[#1B2A6B] font-bold shadow-sm" : "text-slate-200 hover:bg-[#152052] hover:text-white"
-            }`}
+            className={`w-auto md:w-full flex items-center ${sidebarCollapsed ? 'md:justify-center' : 'gap-3 px-4'} py-2.5 md:py-3 px-3 md:px-4 rounded-xl text-sm font-medium transition cursor-pointer flex-shrink-0 ${activeTab === "results" ? "bg-[#FFD100] text-[#1B2A6B] font-bold shadow-sm" : "text-slate-200 hover:bg-[#152052] hover:text-white"
+              }`}
             title="Class Performance"
           >
             <BarChart3 className="w-4.5 h-4.5 flex-shrink-0" />
@@ -885,7 +895,7 @@ export default function TeacherDashboard() {
                     <tbody>
                       {students.length === 0 ? (
                         <tr>
-                           <td colSpan={4} className="py-4 text-center text-slate-400">No students currently registered. Use manual entry.</td>
+                          <td colSpan={4} className="py-4 text-center text-slate-400">No students currently registered. Use manual entry.</td>
                         </tr>
                       ) : (
                         students.map((stud) => (
@@ -950,11 +960,10 @@ export default function TeacherDashboard() {
                     {/* All Subjects selection */}
                     <div
                       onClick={() => setSelectedSubjectId(null)}
-                      className={`flex items-center justify-between p-3 rounded-xl border transition cursor-pointer select-none ${
-                        selectedSubjectId === null
-                          ? "bg-[#1B2A6B]/5 border-[#1B2A6B]/30 text-[#1B2A6B] font-bold"
-                          : "bg-white border-slate-200 hover:border-[#1B2A6B]/30 text-slate-800"
-                      }`}
+                      className={`flex items-center justify-between p-3 rounded-xl border transition cursor-pointer select-none ${selectedSubjectId === null
+                        ? "bg-[#1B2A6B]/5 border-[#1B2A6B]/30 text-[#1B2A6B] font-bold"
+                        : "bg-white border-slate-200 hover:border-[#1B2A6B]/30 text-slate-800"
+                        }`}
                     >
                       <div className="flex items-center gap-2">
                         <BookOpen className={`w-4 h-4 ${selectedSubjectId === null ? "text-[#1B2A6B]" : "text-slate-400"}`} />
@@ -973,11 +982,10 @@ export default function TeacherDashboard() {
                         <div
                           key={sub.id}
                           onClick={() => setSelectedSubjectId(sub.id)}
-                          className={`flex items-center justify-between p-3 rounded-xl border transition cursor-pointer select-none ${
-                            isSelected
-                              ? "bg-[#1B2A6B]/5 border-[#1B2A6B]/30 text-[#1B2A6B]"
-                              : "bg-white border-slate-200 hover:border-[#1B2A6B]/30 text-slate-800"
-                          }`}
+                          className={`flex items-center justify-between p-3 rounded-xl border transition cursor-pointer select-none ${isSelected
+                            ? "bg-[#1B2A6B]/5 border-[#1B2A6B]/30 text-[#1B2A6B]"
+                            : "bg-white border-slate-200 hover:border-[#1B2A6B]/30 text-slate-800"
+                            }`}
                         >
                           <div className="flex items-center gap-2">
                             <BookOpen className={`w-4 h-4 ${isSelected ? "text-[#1B2A6B]" : "text-slate-400"}`} />
@@ -1105,30 +1113,27 @@ export default function TeacherDashboard() {
                                     <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-[#FFD100] text-[#1B2A6B]">
                                       {q.assessmentType || "Exam"}
                                     </span>
-                                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${
-                                      q.questionType === "THEORY"
-                                        ? "bg-purple-50 border-purple-200 text-purple-800"
-                                        : "bg-blue-50 border-blue-205 text-blue-800"
-                                    }`}>
+                                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${q.questionType === "THEORY"
+                                      ? "bg-purple-50 border-purple-200 text-purple-800"
+                                      : "bg-blue-50 border-blue-205 text-blue-800"
+                                      }`}>
                                       {q.questionType || "MCQ"}
                                     </span>
                                     <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200">
                                       {q.points || 1} pt(s)
                                     </span>
-                                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${
-                                      q.difficulty === "EASY"
-                                        ? "bg-emerald-50 border-emerald-250 text-emerald-700"
-                                        : q.difficulty === "HARD"
+                                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${q.difficulty === "EASY"
+                                      ? "bg-emerald-50 border-emerald-250 text-emerald-700"
+                                      : q.difficulty === "HARD"
                                         ? "bg-red-50 border-red-250 text-red-700 font-extrabold"
                                         : "bg-blue-50 border-blue-250 text-blue-700"
-                                    }`}>
+                                      }`}>
                                       {q.difficulty || "MEDIUM"}
                                     </span>
-                                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${
-                                      q.status === "DRAFT"
-                                        ? "bg-amber-50 border-amber-200 text-amber-700"
-                                        : "bg-emerald-50 border-emerald-200 text-emerald-700"
-                                    }`}>
+                                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${q.status === "DRAFT"
+                                      ? "bg-amber-50 border-amber-200 text-amber-700"
+                                      : "bg-emerald-50 border-emerald-200 text-emerald-700"
+                                      }`}>
                                       {q.status || "PUBLISHED"}
                                     </span>
                                     {q.tags && q.tags.split(",").map((tag: string, tidx: number) => {
@@ -1187,11 +1192,10 @@ export default function TeacherDashboard() {
                                     ].map((opt) => (
                                       <div
                                         key={opt.key}
-                                        className={`p-2.5 rounded-lg border text-xs flex items-center gap-2 ${
-                                          q.correctOption === opt.key
-                                            ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 font-bold"
-                                            : "bg-slate-50 border-slate-200 text-slate-500"
-                                        }`}
+                                        className={`p-2.5 rounded-lg border text-xs flex items-center gap-2 ${q.correctOption === opt.key
+                                          ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 font-bold"
+                                          : "bg-slate-50 border-slate-200 text-slate-500"
+                                          }`}
                                       >
                                         <span className="w-5 h-5 rounded-full bg-slate-100 border border-slate-250 flex items-center justify-center flex-shrink-0 text-[10px] font-bold">
                                           {opt.key}
@@ -1217,6 +1221,107 @@ export default function TeacherDashboard() {
             </div>
           )}
 
+          {/* TAB: EXAMS & LIVE MONITORING */}
+          {activeTab === "exams" && (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-bold text-[#1B2A6B]">
+                    Exams & Live Monitoring
+                  </h2>
+                  <p className="text-slate-500 text-xs mt-1">
+                    Manage active examinations and monitor students in real time.
+                  </p>
+                </div>
+              </div>
+
+              {exams.length === 0 ? (
+                <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center shadow-sm">
+                  <Calendar className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+
+                  <h3 className="font-bold text-slate-700">
+                    No examinations scheduled
+                  </h3>
+
+                  <p className="text-xs text-slate-400 mt-1">
+                    Create an examination from your question bank to begin.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                  {exams.map((exam: any) => {
+                    const isLive = exam.status === "LIVE";
+
+                    return (
+                      <div
+                        key={exam.id}
+                        className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition"
+                      >
+                        {/* Exam Header */}
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-base font-bold text-[#1B2A6B] truncate">
+                              {exam.title}
+                            </h3>
+
+                            <p className="text-xs text-slate-500 mt-1">
+                              {exam.assessmentType || "Examination"}
+                            </p>
+                          </div>
+
+                          <span
+                            className={`flex-shrink-0 text-[10px] px-2.5 py-1 rounded-full border font-bold ${isLive
+                                ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                                : "bg-slate-50 border-slate-200 text-slate-500"
+                              }`}
+                          >
+                            {isLive ? "LIVE" : exam.status || "CLOSED"}
+                          </span>
+                        </div>
+
+                        {/* Exam Information */}
+                        <div className="grid grid-cols-2 gap-3 mt-5">
+                          <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                            <p className="text-[9px] uppercase tracking-wider font-bold text-slate-400">
+                              Duration
+                            </p>
+
+                            <p className="text-sm font-bold text-slate-700 mt-1">
+                              {exam.durationMinutes} minutes
+                            </p>
+                          </div>
+
+                          <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                            <p className="text-[9px] uppercase tracking-wider font-bold text-slate-400">
+                              Assessment
+                            </p>
+
+                            <p className="text-sm font-bold text-slate-700 mt-1 truncate">
+                              {exam.assessmentType || "Exam"}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Monitoring Button */}
+                        <div className="mt-5 pt-4 border-t border-slate-100">
+                          <button
+                            onClick={() => {
+                              setProctorData(null);
+                              setProctorExamId(exam.id);
+                            }}
+                            className="w-full flex items-center justify-center gap-2 bg-[#1B2A6B] hover:bg-[#152052] text-white px-4 py-2.5 rounded-xl text-sm font-bold transition shadow-sm border-b-2 border-b-[#FFD100]"
+                          >
+                            <Eye className="w-4 h-4" />
+                            Live Exam Monitoring
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
 
           {/* TAB 4: CLASS RESULTS */}
@@ -1250,11 +1355,10 @@ export default function TeacherDashboard() {
                             <td className="py-3.5 text-slate-500">{res.exam.title}</td>
                             <td className="py-3.5 text-center">
                               <span
-                                className={`font-mono font-bold px-2 py-0.5 rounded text-xs ${
-                                  res.score >= 50
-                                    ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
-                                    : "bg-red-500/10 border border-red-500/20 text-red-400"
-                                }`}
+                                className={`font-mono font-bold px-2 py-0.5 rounded text-xs ${res.score >= 50
+                                  ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
+                                  : "bg-red-500/10 border border-red-500/20 text-red-400"
+                                  }`}
                               >
                                 {res.correctAnswers !== undefined && res.correctAnswers !== null
                                   ? `${res.correctAnswers}/${res.totalQuestions}`
@@ -1270,11 +1374,10 @@ export default function TeacherDashboard() {
                             <td className="py-3.5 text-right">
                               <button
                                 onClick={() => handleToggleResultsVisibility(res.exam.id, res.exam.resultsReleased)}
-                                className={`px-3 py-1 text-xs font-bold rounded-lg transition border cursor-pointer ${
-                                  res.exam.resultsReleased
-                                    ? "bg-emerald-50 border-emerald-250 text-emerald-700 hover:bg-emerald-100"
-                                    : "bg-[#1B2A6B] border-[#1B2A6B] text-white hover:bg-[#152052]"
-                                }`}
+                                className={`px-3 py-1 text-xs font-bold rounded-lg transition border cursor-pointer ${res.exam.resultsReleased
+                                  ? "bg-emerald-50 border-emerald-250 text-emerald-700 hover:bg-emerald-100"
+                                  : "bg-[#1B2A6B] border-[#1B2A6B] text-white hover:bg-[#152052]"
+                                  }`}
                               >
                                 {res.exam.resultsReleased ? "Released" : "Release"}
                               </button>
@@ -1512,18 +1615,18 @@ export default function TeacherDashboard() {
                 {modalType === "student" && editingStudent
                   ? "Edit Student Details"
                   : modalType === "student"
-                  ? `Add Student to Class`
-                  : modalType === "exam"
-                  ? (editingExamId ? "Edit Examination Schedule" : "Schedule New Examination")
-                  : modalType === "subject"
-                  ? "Add Subject to Class"
-                  : modalType === "select-assessment-type"
-                  ? "Select Assessment Type"
-                  : modalType === "edit-assessment"
-                  ? "Edit Assessment Questions"
-                  : modalType === "schedule-assessment"
-                  ? "Schedule Assessment"
-                  : `Add ${modalType}`}
+                    ? `Add Student to Class`
+                    : modalType === "exam"
+                      ? (editingExamId ? "Edit Examination Schedule" : "Schedule New Examination")
+                      : modalType === "subject"
+                        ? "Add Subject to Class"
+                        : modalType === "select-assessment-type"
+                          ? "Select Assessment Type"
+                          : modalType === "edit-assessment"
+                            ? "Edit Assessment Questions"
+                            : modalType === "schedule-assessment"
+                              ? "Schedule Assessment"
+                              : `Add ${modalType}`}
               </h3>
             </div>
 
@@ -1550,18 +1653,17 @@ export default function TeacherDashboard() {
                               setChosenAssessmentType(type);
                               setCustomAssessmentType("");
                             }}
-                            className={`p-3 rounded-xl border text-center font-bold text-xs cursor-pointer select-none transition ${
-                              chosenAssessmentType === type && !customAssessmentType
-                                ? "bg-[#1B2A6B] text-white border-[#1B2A6B]"
-                                : "bg-slate-50 text-slate-700 border-slate-200 hover:border-[#1B2A6B]/30"
-                            }`}
+                            className={`p-3 rounded-xl border text-center font-bold text-xs cursor-pointer select-none transition ${chosenAssessmentType === type && !customAssessmentType
+                              ? "bg-[#1B2A6B] text-white border-[#1B2A6B]"
+                              : "bg-slate-50 text-slate-700 border-slate-200 hover:border-[#1B2A6B]/30"
+                              }`}
                           >
                             {type}
                           </div>
                         ))}
                       </div>
                     </div>
-                    
+
                     <div>
                       <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5 font-sans">Or Create Custom Type</label>
                       <input
@@ -1710,8 +1812,8 @@ export default function TeacherDashboard() {
                   modalType === "student"
                     ? handleAddStudent
                     : modalType === "subject"
-                    ? handleAddSubject
-                    : handleAddExam
+                      ? handleAddSubject
+                      : handleAddExam
                 }
                 className="p-6 space-y-4 max-h-[70vh] overflow-y-auto text-sm"
               >
@@ -1818,7 +1920,7 @@ export default function TeacherDashboard() {
                           onClick={(e) => {
                             try {
                               (e.target as any).showPicker();
-                            } catch (err) {}
+                            } catch (err) { }
                           }}
                           onChange={(e) => setExamForm({ ...examForm, date: e.target.value })}
                           className="w-full bg-zinc-950 border border-zinc-800 focus:border-red-500 text-white text-xs rounded-lg p-2.5 pl-9 outline-none transition"
@@ -1968,6 +2070,7 @@ export default function TeacherDashboard() {
                         <th className="pb-3">Student Name</th>
                         <th className="pb-3">Roll / Email</th>
                         <th className="pb-3">Status</th>
+                        <th className="pb-3">CBT Mode</th>
                         <th className="pb-3 text-center">Tab Switches</th>
                         <th className="pb-3">IP Address</th>
                         <th className="pb-3">Last Active</th>
@@ -1978,7 +2081,7 @@ export default function TeacherDashboard() {
                     <tbody>
                       {proctorData.students.length === 0 ? (
                         <tr>
-                          <td colSpan={8} className="py-4 text-center text-slate-400">No students enrolled in this class.</td>
+                          <td colSpan={9} className="py-4 text-center text-slate-400">No students enrolled in this class.</td>
                         </tr>
                       ) : (
                         proctorData.students.map((student: any) => (
@@ -1987,28 +2090,48 @@ export default function TeacherDashboard() {
                             <td className="py-3.5 text-slate-500 font-mono text-xs">{student.rollNumber}</td>
                             <td className="py-3.5">
                               <span
-                                className={`text-[10px] px-2 py-0.5 rounded border font-bold ${
-                                  student.status === "ONLINE"
-                                    ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                                    : student.status === "SUBMITTED"
+                                className={`text-[10px] px-2 py-0.5 rounded border font-bold ${student.status === "ONLINE"
+                                  ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                                  : student.status === "SUBMITTED"
                                     ? "bg-blue-50 border-blue-200 text-blue-700"
                                     : student.status === "OFFLINE"
-                                    ? "bg-amber-50 border-amber-200 text-amber-700"
-                                    : "bg-slate-50 border-slate-200 text-slate-450"
-                                }`}
+                                      ? "bg-amber-50 border-amber-200 text-amber-700"
+                                      : "bg-slate-50 border-slate-200 text-slate-450"
+                                  }`}
                               >
                                 {student.status}
                               </span>
                             </td>
+                            <td className="py-3.5">
+                              {student.offlinePackage ? (
+                                <span
+                                  className="text-[10px] px-2 py-0.5 rounded border font-bold bg-orange-50 border-orange-200 text-orange-700"
+                                  title={
+                                    student.offlineFrozenAt
+                                      ? `Offline package frozen ${new Date(
+                                        student.offlineFrozenAt
+                                      ).toLocaleString()}`
+                                      : "Offline CBT package available"
+                                  }
+                                >
+                                  OFFLINE CBT
+                                </span>
+                              ) : (
+                                <span
+                                  className="text-[10px] px-2 py-0.5 rounded border font-bold bg-emerald-50 border-emerald-200 text-emerald-700"
+                                >
+                                  ONLINE CBT
+                                </span>
+                              )}
+                            </td>
                             <td className="py-3.5 text-center">
                               <span
-                                className={`font-mono text-xs font-bold px-1.5 py-0.5 rounded ${
-                                  student.tabSwitches >= 3
-                                    ? "bg-red-50 border border-red-200 text-red-700 font-black animate-pulse"
-                                    : student.tabSwitches > 0
+                                className={`font-mono text-xs font-bold px-1.5 py-0.5 rounded ${student.tabSwitches >= 3
+                                  ? "bg-red-50 border border-red-200 text-red-700 font-black animate-pulse"
+                                  : student.tabSwitches > 0
                                     ? "bg-amber-50 border border-amber-200 text-amber-700"
                                     : "bg-slate-50 border border-slate-200 text-slate-500"
-                                }`}
+                                  }`}
                               >
                                 {student.tabSwitches} / 3
                               </span>

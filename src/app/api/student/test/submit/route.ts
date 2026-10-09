@@ -1,231 +1,135 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { verifyJWT } from "@/lib/jwt";
-
-function hashString(str: string): number {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = (hash << 5) - hash + str.charCodeAt(i);
-    hash |= 0;
-  }
-  return hash;
-}
+import {
+  calculateExamSubmission,
+  persistExamSubmission,
+} from "@/lib/student/submit-exam";
 
 export async function POST(request: NextRequest) {
   try {
     const token = request.cookies.get("token")?.value;
-    const payload = token ? await verifyJWT(token) : null;
-    if (!payload || payload.role !== "STUDENT") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const payload = token
+      ? await verifyJWT(token)
+      : null;
+
+    if (
+      !payload ||
+      payload.role !== "STUDENT"
+    ) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
     }
 
-    const { examId, timeSpent } = await request.json();
+    const {
+      examId,
+      timeSpent,
+    } = await request.json();
 
-    if (!examId || timeSpent === undefined) {
-      return NextResponse.json({ error: "Exam ID and time spent are required" }, { status: 400 });
+    if (
+      !examId ||
+      timeSpent === undefined
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Exam ID and time spent are required",
+        },
+        { status: 400 }
+      );
     }
 
     const studentId = payload.id;
 
-    // Check if result already exists
-    const existingResult = await prisma.result.findUnique({
-      where: {
-        examId_studentId: {
+    // Calculate the submission using the
+    // exact same grading logic used by
+    // the offline submission test.
+    const submission =
+      await calculateExamSubmission(
+        prisma,
+        examId,
+        studentId
+      );
+
+    // Persist the real submission.
+    const result =
+      await persistExamSubmission(
+        prisma,
+        {
           examId,
           studentId,
-        },
-      },
-    });
-
-    if (existingResult) {
-      return NextResponse.json({ error: "Exam already submitted" }, { status: 400 });
-    }
-
-    // 1. Fetch exam and associated subjects
-    const exam = await prisma.exam.findUnique({
-      where: { id: examId },
-      include: {
-        examSubjects: true,
-      },
-    });
-
-    if (!exam) {
-      return NextResponse.json({ error: "Exam not found" }, { status: 404 });
-    }
-
-    // 2. Re-compile the exact questions assigned to the student
-    let totalQuestionsCount = 0;
-    let totalAssignedQuestions = 0;
-    let correctAnswersCount = 0;
-    let firstAssignedQuestionType: string | null = null;
-
-    // Fetch student's attempts for this exam
-    const attempts = await prisma.studentAttempt.findMany({
-      where: {
-        examId,
-        studentId,
-      },
-    });
-
-    const attemptsMap = attempts.reduce((acc: any, att: any) => {
-      acc[att.questionId] = att.selectedOption;
-      return acc;
-    }, {});
-
-    for (const es of exam.examSubjects) {
-      const allSubjectQuestions = await prisma.question.findMany({
-        where: {
-          subjectId: es.subjectId,
-          status: "PUBLISHED",
-          assessmentType: exam.assessmentType || "Exam",
-        },
-      });
-
-      // Same deterministic shuffle
-      const shuffled = allSubjectQuestions
-        .map((q: any) => ({
-          q,
-          hash: hashString(studentId + q.id),
-        }))
-        .sort((a: any, b: any) => a.hash - b.hash)
-        .map((item: any) => item.q);
-
-      const assignedQuestions = shuffled.slice(0, es.numberOfQuestions);
-      assignedQuestions.sort((a: any, b: any) => {
-        if (a.questionType === "THEORY" && b.questionType !== "THEORY") return 1;
-        if (a.questionType !== "THEORY" && b.questionType === "THEORY") return -1;
-        return 0;
-      });
-      totalAssignedQuestions += assignedQuestions.length;
-
-      const mcqQuestions = assignedQuestions.filter((q: any) => q.questionType !== "THEORY");
-      totalQuestionsCount += mcqQuestions.length;
-
-      if (assignedQuestions.length > 0 && !firstAssignedQuestionType) {
-        firstAssignedQuestionType = assignedQuestions[0].assessmentType;
-      }
-
-      // Grade attempts
-      mcqQuestions.forEach((q: any) => {
-        const studentSelect = attemptsMap[q.id];
-        if (studentSelect && studentSelect.toUpperCase() === q.correctOption.toUpperCase()) {
-          correctAnswersCount += 1;
+          timeSpent: parseInt(
+            timeSpent,
+            10
+          ),
+          submission,
         }
-      });
-    }
-
-    if (totalAssignedQuestions === 0) {
-      return NextResponse.json({ error: "This exam has no questions configured." }, { status: 400 });
-    }
-
-    // Calculate score percentage (e.g. 80.0%) based on MCQ count
-    const score = totalQuestionsCount > 0 ? Math.round((correctAnswersCount / totalQuestionsCount) * 10000) / 100 : 0;
-
-    // 3. Create Result record
-    const result = await prisma.result.create({
-      data: {
-        examId,
-        studentId,
-        score,
-        correctAnswers: correctAnswersCount,
-        totalQuestions: totalQuestionsCount,
-        timeSpent: parseInt(timeSpent, 10),
-      },
-      include: {
-        exam: true,
-      },
-    });
-
-    // 4. Automatically persist score to student record (CA / Exam Score)
-    let assessmentType = "Exam";
-    if (firstAssignedQuestionType === "1st CA" || firstAssignedQuestionType === "2nd CA" || firstAssignedQuestionType === "Exam") {
-      assessmentType = firstAssignedQuestionType;
-    } else {
-      const titleLower = exam.title.toLowerCase();
-      if (titleLower.includes("1st ca") || titleLower.includes("first ca")) {
-        assessmentType = "1st CA";
-      } else if (titleLower.includes("2nd ca") || titleLower.includes("second ca")) {
-        assessmentType = "2nd CA";
-      }
-    }
-
-    let caField: "firstCA" | "secondCA" | "examScore" | null = null;
-    let maxScore = 100;
-    if (assessmentType === "1st CA") {
-      caField = "firstCA";
-      maxScore = 20;
-    } else if (assessmentType === "2nd CA") {
-      caField = "secondCA";
-      maxScore = 20;
-    } else {
-      caField = "examScore";
-      maxScore = 60;
-    }
-
-    if (caField && totalQuestionsCount > 0) {
-      const scaledScore = Math.round((correctAnswersCount / totalQuestionsCount) * maxScore * 100) / 100;
-      
-      // Update subject-specific scores
-      for (const es of exam.examSubjects) {
-        await prisma.subjectScore.upsert({
-          where: {
-            studentId_subjectId: {
-              studentId: studentId,
-              subjectId: es.subjectId,
-            }
-          },
-          update: {
-            [caField]: scaledScore,
-          },
-          create: {
-            studentId: studentId,
-            subjectId: es.subjectId,
-            [caField]: scaledScore,
-          }
-        });
-      }
-
-      // Legacy fallback update on User model
-      await prisma.user.update({
-        where: { id: studentId },
-        data: {
-          [caField]: scaledScore,
-        },
-      });
-    }
-
-    // Update ExamSession status to SUBMITTED
-    await prisma.examSession.upsert({
-      where: {
-        examId_studentId: {
-          examId,
-          studentId,
-        },
-      },
-      update: {
-        status: "SUBMITTED",
-        lastPing: new Date(),
-      },
-      create: {
-        examId,
-        studentId,
-        status: "SUBMITTED",
-      },
-    });
+      );
 
     return NextResponse.json({
       success: true,
       result: {
-        id: result.id,
-        examTitle: result.exam.title,
-        score: result.score,
-        totalQuestions: result.totalQuestions,
-        correctAnswers: correctAnswersCount,
-        timeSpent: result.timeSpent,
+        id: result.result.id,
+        examTitle:
+          result.examTitle,
+        score:
+          result.score,
+        totalQuestions:
+          result.totalQuestions,
+        correctAnswers:
+          result.correctAnswers,
+        timeSpent:
+          result.timeSpent,
       },
     });
   } catch (error) {
-    console.error("POST student test submit error:", error);
-    return NextResponse.json({ error: "Failed to submit exam" }, { status: 500 });
+    console.error(
+      "POST student test submit error:",
+      error
+    );
+
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Failed to submit exam";
+
+    if (
+      message ===
+      "Exam already submitted"
+    ) {
+      return NextResponse.json(
+        { error: message },
+        { status: 400 }
+      );
+    }
+
+    if (
+      message === "Exam not found"
+    ) {
+      return NextResponse.json(
+        { error: message },
+        { status: 404 }
+      );
+    }
+
+    if (
+      message ===
+      "This exam has no questions configured."
+    ) {
+      return NextResponse.json(
+        { error: message },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json(
+      {
+        error:
+          "Failed to submit exam",
+      },
+      { status: 500 }
+    );
   }
 }
