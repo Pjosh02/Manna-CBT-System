@@ -57,7 +57,7 @@ export default function TeacherDashboard() {
     date: "",
     durationMinutes: "45",
     status: "LIVE",
-    subjects: [] as { subjectId: string; numberOfQuestions: string }[],
+    subjects: [] as { subjectId: string; numberOfQuestions: string }[], autoReleaseResults: false,
   });
   const [editingExamId, setEditingExamId] = useState<string | null>(null);
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
@@ -606,6 +606,7 @@ export default function TeacherDashboard() {
         durationMinutes: examForm.durationMinutes,
         status: examForm.status,
         subjects: examForm.subjects,
+        autoReleaseResults: examForm.autoReleaseResults,
       };
       const method = editingExamId ? "PATCH" : "POST";
       const res = await fetch("/api/teacher/exams", {
@@ -624,13 +625,16 @@ export default function TeacherDashboard() {
 
       setModalType(null);
       setEditingExamId(null);
+
       setExamForm({
         title: "",
         date: "",
         durationMinutes: "45",
         status: "LIVE",
         subjects: [],
+        autoReleaseResults: false,
       });
+
       fetchClassData(selectedClassId);
     } catch (err: any) {
       setFormError(err.message);
@@ -1271,8 +1275,8 @@ export default function TeacherDashboard() {
 
                           <span
                             className={`flex-shrink-0 text-[10px] px-2.5 py-1 rounded-full border font-bold ${isLive
-                                ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                                : "bg-slate-50 border-slate-200 text-slate-500"
+                              ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                              : "bg-slate-50 border-slate-200 text-slate-500"
                               }`}
                           >
                             {isLive ? "LIVE" : exam.status || "CLOSED"}
@@ -1927,6 +1931,75 @@ export default function TeacherDashboard() {
                         />
                       </div>
                     </div>
+
+
+                    {/* Result Release Policy */}
+                    <div className="mt-5 p-4 rounded-xl border border-slate-700 bg-slate-900/60 space-y-3">
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1">
+                          Result Release Policy
+                        </label>
+                        <p className="text-xs text-slate-400">
+                          Choose when students can see their examination results.
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {/* Automatic Release */}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExamForm({ ...examForm, autoReleaseResults: true })
+                          }
+                          className={`p-3 rounded-xl border text-left transition ${examForm.autoReleaseResults
+                              ? "border-emerald-500 bg-emerald-500/10 ring-1 ring-emerald-500"
+                              : "border-slate-700 bg-slate-950 hover:border-slate-500"
+                            }`}
+                        >
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-lg">⚡</span>
+                            <span className={`text-sm font-bold ${examForm.autoReleaseResults ? "text-emerald-400" : "text-slate-200"
+                              }`}>
+                              Automatic Release
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-400 leading-relaxed">
+                            Students see their results immediately after submitting.
+                          </p>
+                        </button>
+
+                        {/* Manual Release */}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExamForm({ ...examForm, autoReleaseResults: false })
+                          }
+                          className={`p-3 rounded-xl border text-left transition ${!examForm.autoReleaseResults
+                              ? "border-amber-500 bg-amber-500/10 ring-1 ring-amber-500"
+                              : "border-slate-700 bg-slate-950 hover:border-slate-500"
+                            }`}
+                        >
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-lg">🔒</span>
+                            <span className={`text-sm font-bold ${!examForm.autoReleaseResults ? "text-amber-400" : "text-slate-200"
+                              }`}>
+                              Manual Release
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-400 leading-relaxed">
+                            Results remain hidden until the teacher releases them.
+                          </p>
+                        </button>
+                      </div>
+
+                      <div className={`text-xs font-semibold ${examForm.autoReleaseResults ? "text-emerald-400" : "text-amber-400"
+                        }`}>
+                        {examForm.autoReleaseResults
+                          ? "✓ Results will be available immediately after submission."
+                          : "✓ Results will remain private until you release them."}
+                      </div>
+                    </div>
+
 
                     {/* Subjects Configuration */}
                     <div className="border-t border-zinc-800/80 pt-4">

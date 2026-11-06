@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { Prisma } from "@prisma/client";
 
 function hashString(str: string): number {
     let hash = 0;
@@ -11,9 +12,7 @@ function hashString(str: string): number {
     return hash;
 }
 
-type PrismaTransaction = Parameters<
-    Parameters<typeof prisma.$transaction>[0]
->[0];
+type PrismaTransaction = Prisma.TransactionClient;
 
 export async function calculateExamSubmission(
     db: PrismaTransaction,
@@ -292,6 +291,36 @@ export async function persistExamSubmission(
                 exam: true,
             },
         });
+
+
+    // Automatically release results when the
+    // teacher selected Automatic Release.
+    const releaseSettings =
+        await db.$queryRaw<
+            Array<{
+                autoReleaseResults: boolean;
+                resultsReleased: boolean;
+            }>
+        >`
+            SELECT
+                "autoReleaseResults",
+                "resultsReleased"
+            FROM "Exam"
+            WHERE id = ${examId}
+            LIMIT 1
+        `;
+
+    if (
+        releaseSettings[0]?.autoReleaseResults &&
+        !releaseSettings[0]?.resultsReleased
+    ) {
+        await db.$executeRaw`
+            UPDATE "Exam"
+            SET "resultsReleased" = true
+            WHERE id = ${examId}
+        `;
+    }
+
 
     // Determine assessment type
     let assessmentType = "Exam";

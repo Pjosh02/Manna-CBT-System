@@ -75,7 +75,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { title, startTime, endTime, durationMinutes, status, subjects, classId: bodyClassId, assessmentType } = await request.json();
+    const {
+      title,
+      startTime,
+      endTime,
+      durationMinutes,
+      status,
+      subjects,
+      classId: bodyClassId,
+      assessmentType,
+      autoReleaseResults,
+    } = await request.json();
     let classId = bodyClassId;
     if (!classId && assignedClassIds.length > 0) {
       classId = assignedClassIds[0];
@@ -105,6 +115,7 @@ export async function POST(request: NextRequest) {
           durationMinutes: parseInt(durationMinutes, 10),
           status,
           assessmentType: assessmentType || "Exam",
+          autoReleaseResults: autoReleaseResults === true,
           createdBy: payload.id,
         },
       });
@@ -183,7 +194,16 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ exam: updated });
     }
 
-    const { title, startTime, endTime, durationMinutes, status, subjects, assessmentType } = body;
+    const {
+      title,
+      startTime,
+      endTime,
+      durationMinutes,
+      status,
+      subjects,
+      assessmentType,
+      autoReleaseResults,
+    } = body;
 
     if (!title || !startTime || !endTime || !durationMinutes || !status || !subjects || !Array.isArray(subjects)) {
       return NextResponse.json(
@@ -202,7 +222,12 @@ export async function PATCH(request: NextRequest) {
           endTime: new Date(endTime),
           durationMinutes: parseInt(durationMinutes, 10),
           status,
-          assessmentType: assessmentType !== undefined ? assessmentType : undefined,
+          assessmentType:
+            assessmentType !== undefined ? assessmentType : undefined,
+          autoReleaseResults:
+            autoReleaseResults !== undefined
+              ? autoReleaseResults === true
+              : undefined,
         },
       });
 

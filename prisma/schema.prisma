@@ -109,7 +109,9 @@ model Exam {
   status          String   // "DRAFT" | "SCHEDULED" | "LIVE" | "CLOSED"
   assessmentType  String   @default("Exam")
   resultsReleased Boolean  @default(false)
+  autoReleaseResults Boolean @default(false)
   createdAt       DateTime @default(now())
+  
 
   // Relations
   examSubjects    ExamSubject[]
