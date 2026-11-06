@@ -566,6 +566,45 @@ export default function TeacherDashboard() {
     }
   };
 
+
+  // Delete Entire Assessment Panel
+
+  const handleDeleteAssessmentPanel = async (panel: any) => {
+    const confirmed = confirm(
+      `Delete ALL questions in ${panel.subjectName} — ${panel.assessmentType}?\n\nThis cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch("/api/teacher/assessment-panels", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          subjectId: panel.subjectId,
+          assessmentType: panel.assessmentType,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.error || "Failed to delete assessment.");
+        return;
+      }
+
+      alert(data.message || "Assessment deleted successfully.");
+
+      await fetchClassData(selectedClassId);
+    } catch (error) {
+      console.error(error);
+      alert("An error occurred while deleting the assessment.");
+    }
+  };
+
+
   // Schedule Exam Subject Configuration Helpers
   const handleAddSubjectToExam = () => {
     setExamForm({
@@ -1106,6 +1145,15 @@ export default function TeacherDashboard() {
                             </button>
                           </div>
                         </div>
+
+
+                        <button
+                          onClick={() => handleDeleteAssessmentPanel(panel)}
+                          className="flex items-center gap-1 bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1.5 rounded-lg font-semibold transition cursor-pointer shadow-sm"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" /> Delete Test
+                        </button>
+
 
                         {/* Collapsible Panel Content */}
                         {isExpanded && (
@@ -1833,8 +1881,8 @@ export default function TeacherDashboard() {
                             })
                           }
                           className={`p-3 rounded-xl border text-sm font-semibold transition ${scheduleForm.autoReleaseResults
-                              ? "border-emerald-500 bg-emerald-50 text-emerald-700"
-                              : "border-slate-200 bg-white text-slate-600"
+                            ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                            : "border-slate-200 bg-white text-slate-600"
                             }`}
                         >
                           ⚡ Automatic
@@ -1849,8 +1897,8 @@ export default function TeacherDashboard() {
                             })
                           }
                           className={`p-3 rounded-xl border text-sm font-semibold transition ${!scheduleForm.autoReleaseResults
-                              ? "border-amber-500 bg-amber-50 text-amber-700"
-                              : "border-slate-200 bg-white text-slate-600"
+                            ? "border-amber-500 bg-amber-50 text-amber-700"
+                            : "border-slate-200 bg-white text-slate-600"
                             }`}
                         >
                           🔒 Manual
