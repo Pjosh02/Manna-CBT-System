@@ -75,6 +75,7 @@ export default function TeacherDashboard() {
   const [selectedPanelForSchedule, setSelectedPanelForSchedule] = useState<any | null>(null);
   const [scheduleForm, setScheduleForm] = useState({
     durationMinutes: "45",
+    autoReleaseResults: false,
   });
   const [expandedPanels, setExpandedPanels] = useState<Record<string, boolean>>({});
 
@@ -142,6 +143,7 @@ export default function TeacherDashboard() {
         startTime: new Date().toISOString(),
         endTime: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year
         durationMinutes: scheduleForm.durationMinutes,
+        autoReleaseResults: scheduleForm.autoReleaseResults,
         status: "LIVE",
         assessmentType,
         subjects: [
@@ -1095,6 +1097,7 @@ export default function TeacherDashboard() {
                                 setModalType("schedule-assessment");
                                 setScheduleForm({
                                   durationMinutes: "45",
+                                  autoReleaseResults: false,
                                 });
                               }}
                               className="flex items-center gap-1 bg-[#FFD100] hover:bg-[#FFD100]/90 text-[#1B2A6B] text-xs px-3 py-1.5 rounded-lg font-bold transition cursor-pointer shadow-sm"
@@ -1682,6 +1685,33 @@ export default function TeacherDashboard() {
                       />
                     </div>
 
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 font-sans">
+                        Result Release
+                      </label>
+
+                      <select
+                        value={scheduleForm.autoReleaseResults ? "automatic" : "manual"}
+                        onChange={(e) =>
+                          setScheduleForm({
+                            ...scheduleForm,
+                            autoReleaseResults: e.target.value === "automatic",
+                          })
+                        }
+                        className="w-full bg-slate-50 border border-slate-200 focus:border-[#1B2A6B] focus:ring-2 focus:ring-[#1B2A6B]/15 text-slate-850 rounded-lg p-2.5 outline-none transition text-sm font-medium"
+                      >
+                        <option value="automatic">Automatic Release</option>
+                        <option value="manual">Manual Release</option>
+                      </select>
+
+                      <p className="text-xs text-slate-500 mt-1.5">
+                        {scheduleForm.autoReleaseResults
+                          ? "Students can view results immediately after submission."
+                          : "Results remain hidden until you release them."}
+                      </p>
+                    </div>
+
+
                     <div className="border-t border-slate-100 pt-6 flex justify-end gap-3">
                       <button
                         type="button"
@@ -1952,8 +1982,8 @@ export default function TeacherDashboard() {
                             setExamForm({ ...examForm, autoReleaseResults: true })
                           }
                           className={`p-3 rounded-xl border text-left transition ${examForm.autoReleaseResults
-                              ? "border-emerald-500 bg-emerald-500/10 ring-1 ring-emerald-500"
-                              : "border-slate-700 bg-slate-950 hover:border-slate-500"
+                            ? "border-emerald-500 bg-emerald-500/10 ring-1 ring-emerald-500"
+                            : "border-slate-700 bg-slate-950 hover:border-slate-500"
                             }`}
                         >
                           <div className="flex items-center gap-2 mb-2">
@@ -1975,8 +2005,8 @@ export default function TeacherDashboard() {
                             setExamForm({ ...examForm, autoReleaseResults: false })
                           }
                           className={`p-3 rounded-xl border text-left transition ${!examForm.autoReleaseResults
-                              ? "border-amber-500 bg-amber-500/10 ring-1 ring-amber-500"
-                              : "border-slate-700 bg-slate-950 hover:border-slate-500"
+                            ? "border-amber-500 bg-amber-500/10 ring-1 ring-amber-500"
+                            : "border-slate-700 bg-slate-950 hover:border-slate-500"
                             }`}
                         >
                           <div className="flex items-center gap-2 mb-2">
@@ -1999,7 +2029,6 @@ export default function TeacherDashboard() {
                           : "✓ Results will remain private until you release them."}
                       </div>
                     </div>
-
 
                     {/* Subjects Configuration */}
                     <div className="border-t border-zinc-800/80 pt-4">
