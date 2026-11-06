@@ -1818,6 +1818,53 @@ export default function TeacherDashboard() {
                       />
                     </div>
 
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 font-sans">
+                        Result Release
+                      </label>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setScheduleForm({
+                              ...scheduleForm,
+                              autoReleaseResults: true,
+                            })
+                          }
+                          className={`p-3 rounded-xl border text-sm font-semibold transition ${scheduleForm.autoReleaseResults
+                              ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                              : "border-slate-200 bg-white text-slate-600"
+                            }`}
+                        >
+                          ⚡ Automatic
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setScheduleForm({
+                              ...scheduleForm,
+                              autoReleaseResults: false,
+                            })
+                          }
+                          className={`p-3 rounded-xl border text-sm font-semibold transition ${!scheduleForm.autoReleaseResults
+                              ? "border-amber-500 bg-amber-50 text-amber-700"
+                              : "border-slate-200 bg-white text-slate-600"
+                            }`}
+                        >
+                          🔒 Manual
+                        </button>
+                      </div>
+
+                      <p className="text-xs text-slate-500 mt-2">
+                        {scheduleForm.autoReleaseResults
+                          ? "Students see results immediately after submission."
+                          : "Results remain hidden until you release them."}
+                      </p>
+                    </div>
+
+
                     <div className="border-t border-slate-100 pt-6 flex justify-end gap-3">
                       <button
                         type="button"
